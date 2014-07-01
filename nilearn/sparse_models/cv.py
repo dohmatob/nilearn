@@ -341,7 +341,7 @@ class _BaseCV(_BaseEstimator):
         # always sort alphas from largest to smallest
         alphas = np.array(sorted(alphas)[::-1])
 
-        cv = list(check_cv(self.cv, X=X, y=y, classifier=True))
+        cv = list(check_cv(self.cv, X=X, y=y, classifier=is_classifier(self)))
         self.n_folds_ = len(cv)
 
         # misc (different for classifier and regressor)
