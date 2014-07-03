@@ -31,8 +31,7 @@ def logistic_path_scores(solver, X, y, alphas, l1_ratio, train,
                          mask=None, verbose=0, key=None,
                          screening_percentile=10., memory=Memory(None),
                          **kwargs):
-    """Function to compute scores of different alphas in classification
-    used by CV objects.
+    """Computes scores for different models on a classification CV fold.
 
     Parameters
     ----------
@@ -107,8 +106,7 @@ def squared_loss_path_scores(solver, X, y, alphas, l1_ratio, train, test,
                              debias=False, ymean=0., verbose=0,
                              key=None, screening_percentile=10.,
                              memory=Memory(None), **kwargs):
-    """Function to compute scores of different alphas in regression.
-    used by CV objects.
+    """Computes scores for different models on a regression CV fold.
 
     Parameters
     ----------

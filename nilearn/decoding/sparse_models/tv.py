@@ -11,9 +11,9 @@ TV-l1 regression. Handles squared loss and logistic too.
 # License: simplified BSD
 
 import numpy as np
-from .common import (compute_mse_lipschitz_constant, gradient_id,
-                     compute_logistic_lipschitz_constant,
-                     mse_loss, mse_loss_grad, _unmask,
+from .common import (squared_loss_lipschitz_constant, gradient_id,
+                     logistic_lipschitz_constant,
+                     squared_loss, squared_loss_grad, _unmask,
                      logistic_grad as logistic_loss_grad,
                      logistic as logistic_loss)
 from .operators import prox_tv_l1, intercepted_prox_tv_l1
@@ -37,10 +37,8 @@ def _tvl1_objective_from_gradient(gradient):
 
 
 def tvl1_objective(X, y, w, alpha, l1_ratio, mask=None, shape=None,
-                   loss="mse"):
+                   loss="squared"):
     """The TV + l1 squared loss regression objective functions,
-
-        w can be a 2D or 3D array
 
     """
 
@@ -48,18 +46,18 @@ def tvl1_objective(X, y, w, alpha, l1_ratio, mask=None, shape=None,
         if mask is not None:
             shape = mask.shape
         else:
-            if loss == "mse":
+            if loss == "squared":
                 shape = w.shape
             else:
                 shape = (len(np.ravel(w)) - 1,)
 
     # if not mask is None: mask = mask.ravel()
     loss = loss.lower()
-    assert loss in ['mse', 'logistic']
+    assert loss in ['squared', 'logistic']
 
     w = w.ravel()
-    if loss == "mse":
-        out = mse_loss(X, y, w, mask=mask)
+    if loss == "squared":
+        out = squared_loss(X, y, w, mask=mask)
     else:
         out = logistic_loss(X, y, w, mask=mask)
         w = w[:-1]
@@ -75,8 +73,8 @@ def tvl1_solver(X, y, alpha, l1_ratio, mask=None, loss=None,
                 prox_max_iter=5000, verbose=0, tol=1e-4, **kwargs):
     """Minimizes empirical risk for TV-l1 penalized models.
 
-    Can handle least-squares (mean square error --a.k.a mse) or logistic
-    regression. The same solver works for both of these losses.
+    Can handle squared error or logistic regression. The same solver works for
+    both of these losses.
 
     This function invokes the mfista backend (from fista.py) to solver the
     underlying optimization problem.
@@ -112,7 +110,7 @@ def tvl1_solver(X, y, alpha, l1_ratio, mask=None, loss=None,
         Defines the tolerance for convergence. Defaults to 1e-4.
 
     loss: string
-        Loss model for regression. Can be "mse" (for squared loss) or
+        Loss model for regression. Can be "squared" (for squared loss) or
         "logistic" (for logistic loss).
 
     lipschitz_constant: float, optional (default None)
@@ -136,8 +134,8 @@ def tvl1_solver(X, y, alpha, l1_ratio, mask=None, loss=None,
     """
 
     # sanitize loss
-    if loss not in ["mse", "logistic"]:
-        raise ValueError("'%s' loss not implemented. Should be 'mse' or "
+    if loss not in ["squared", "logistic"]:
+        raise ValueError("'%s' loss not implemented. Should be 'squared' or "
                          "'logistic" % loss)
 
     # shape of image box
@@ -161,7 +159,7 @@ def tvl1_solver(X, y, alpha, l1_ratio, mask=None, loss=None,
     def unmaskvec(w):
         if None in [w, mask]:
             return w
-        elif loss == "mse":
+        elif loss == "squared":
             return _unmask(w, mask)
         else:
             return np.append(_unmask(w[:-1], mask), w[-1])
@@ -169,7 +167,7 @@ def tvl1_solver(X, y, alpha, l1_ratio, mask=None, loss=None,
     def maskvec(w):
         if None in [w, mask]:
             return w
-        elif loss == "mse":
+        elif loss == "squared":
             return w[flat_mask]
         else:
             return np.append(w[:-1][flat_mask], w[-1])
@@ -179,14 +177,14 @@ def tvl1_solver(X, y, alpha, l1_ratio, mask=None, loss=None,
         if loss == "logistic":
             return logistic_loss(X, y, w)
         else:
-            return mse_loss(X, y, w)
+            return squared_loss(X, y, w)
 
     # function to compute derivative of f1
     def f1_grad(w):
         if loss == "logistic":
             return logistic_loss_grad(X, y, w)
         else:
-            return mse_loss_grad(X, y, w)
+            return squared_loss_grad(X, y, w)
 
     # function to compute total energy (i.e smooth (f1) + nonsmooth (f2) parts)
     total_energy = lambda w: tvl1_objective(
@@ -195,13 +193,13 @@ def tvl1_solver(X, y, alpha, l1_ratio, mask=None, loss=None,
 
     # lispschitz constant of f1_grad
     if lipschitz_constant is None:
-        if loss == "mse":
-            lipschitz_constant = 1.05 * compute_mse_lipschitz_constant(X)
+        if loss == "squared":
+            lipschitz_constant = 1.05 * squared_loss_lipschitz_constant(X)
         else:
-            lipschitz_constant = 1.1 * compute_logistic_lipschitz_constant(X)
+            lipschitz_constant = 1.1 * logistic_lipschitz_constant(X)
 
     # proximal operator of nonsmooth proximable part of energy (f2)
-    if loss == "mse":
+    if loss == "squared":
         def f2_prox(w, stepsize, dgap_tol, init=None):
             out, info = prox_tv_l1(
                 unmaskvec(w), weight=alpha * stepsize, l1_ratio=l1_ratio,

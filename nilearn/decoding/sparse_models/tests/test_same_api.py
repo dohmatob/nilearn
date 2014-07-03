@@ -10,7 +10,7 @@ from nose.tools import nottest
 import numpy as np
 from sklearn.datasets import load_iris
 from ..common import (squared_loss, squared_loss_grad,
-                      compute_logistic_lipschitz_constant,
+                      logistic_lipschitz_constant,
                       squared_loss_lipschitz_constant)
 from ..smooth_lasso import (squared_loss_and_spatial_grad,
                             logistic_derivative_lipschitz_constant,
@@ -66,7 +66,7 @@ def test_same_energy_calculus_pure_lasso():
     np.testing.assert_array_equal(g1, g2)
 
 
-def test_lipschitz_constant_lass_mse():
+def test_lipschitz_constant_lass_squared():
     rng = np.random.RandomState(42)
     l1_ratio = 1.
     alpha = .1
@@ -88,7 +88,7 @@ def test_lipschitz_constant_lass_logreg():
     mask = np.ones(X.shape[1]).astype(np.bool)
     grad_weight = alpha * X.shape[0] * (1. - l1_ratio)
     a = logistic_derivative_lipschitz_constant(X, mask, grad_weight)
-    b = compute_logistic_lipschitz_constant(X)
+    b = logistic_lipschitz_constant(X)
     assert_equal(a, b)
 
 
@@ -102,7 +102,7 @@ def test_smoothlasso_and_tvl1_same_for_pure_l1(max_iter=10, decimal=2):
     alpha = .1
 
     # results should be exactly the same for pure lasso
-    a = tvl1_solver(X, y, alpha, 1., loss="mse", max_iter=max_iter)[0]
+    a = tvl1_solver(X, y, alpha, 1., loss="squared", max_iter=max_iter)[0]
     b = smooth_lasso_squared_loss(X, y, alpha, 1., max_iter=max_iter)[0]
     sl = SmoothLassoRegressor(alpha=alpha, l1_ratio=1.,
                               max_iter=max_iter).fit(X, y)

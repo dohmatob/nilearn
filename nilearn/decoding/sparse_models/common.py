@@ -76,7 +76,7 @@ def check_lipschitz_continuous(f, ndim, L, n_trials=10, err_msg=None):
 
 
 # xxx: isn't it a more generic function?
-def compute_mse_lipschitz_constant(X):
+def squared_loss_lipschitz_constant(X):
     """Compute the Lipschitz constant (upper bound) for the gradient of a map:
 
         w -> .5 * ||y - Xw||^2
@@ -97,7 +97,7 @@ def compute_mse_lipschitz_constant(X):
     return linalg.svdvals(X)[0] ** 2
 
 
-def compute_logistic_lipschitz_constant(X):
+def logistic_lipschitz_constant(X):
     """Compute the Lipschitz constant (upper bound) for the gradient of the
     logistic sum:
 
@@ -106,20 +106,17 @@ def compute_logistic_lipschitz_constant(X):
     """
     # N.B: we handle intercept!
     X = np.hstack((X, np.ones(X.shape[0])[:, np.newaxis]))
-    return compute_mse_lipschitz_constant(X)  # XXX doubtful
+    return squared_loss_lipschitz_constant(X)  # XXX doubtful
 
 
 # XXX: functions that return variable number of outputs are bad
-def compute_mse(X, y, w, mask=None, compute_energy=True, compute_grad=True,
-                unmask_grad=True, compute_hess=False, unmask_hess=True):
+def squared_loss(X, y, w, mask=None, compute_energy=True, compute_grad=False,
+                 unmask_grad=True, compute_hess=False, unmask_hess=True):
 
-    """Compute the MSE error, and optionally, its gradient too.
+    """Compute the squared error, and optionally, its gradient too.
 
-    The energy is
-
-        MSE = .5 * ||y - Xw||^2 / n_samples
-
-    A (1 / n_samples) factor is applied to the MSE.
+    Recall that:
+        squared error := .5 * ||y - Xw||^2
 
     Parameters
     ----------
@@ -138,7 +135,7 @@ def compute_mse(X, y, w, mask=None, compute_energy=True, compute_grad=True,
     compute_energy: bool, optional (default True)
         If set then energy is computed, otherwise only gradient is computed.
 
-    compute_grad: bool, optional (default True)
+    compute_grad: bool, optional (default False)
         If set then energy is computed, otherwise only energy is computed.
 
     unmask_grad: bool, optional (default True)
@@ -386,8 +383,6 @@ def logistic_grad(X, y, w, mask=None):
         grad = np.append(_unmask(grad[:-1], mask), grad[-1])
     return grad
 
-# aliases (for "backward compatibility")
-mse_loss = squared_loss = partial(compute_mse, compute_grad=False)
-mse_loss_grad = squared_loss_grad = partial(compute_mse, compute_energy=False)
-squared_loss_lipschitz_constant = compute_mse_lipschitz_constant
-logistic_lipschitz_constant = compute_logistic_lipschitz_constant
+
+squared_loss_grad = partial(squared_loss, compute_energy=False,
+                            compute_grad=True)
