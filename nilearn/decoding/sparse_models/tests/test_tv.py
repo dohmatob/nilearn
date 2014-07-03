@@ -16,10 +16,9 @@ CACHE = os.path.join(ROOT, "cache")
 sys.path.append(os.path.join(ROOT, "examples/proximal"))
 
 
-def test_tv_l1_from_gradient(size=5, n_samples=10, random_state=42,
-                             decimal=8):
+def test_tv_l1_from_gradient(size=5, n_samples=10):
 
-    rng = np.random.RandomState(random_state)
+    rng = np.random.RandomState(42)
 
     shape = [size] * 3
     n_voxels = np.prod(shape)
