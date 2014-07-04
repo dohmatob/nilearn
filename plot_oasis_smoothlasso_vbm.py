@@ -64,10 +64,12 @@ im = plt.imshow(np.rot90(data_for_plot), cmap=plt.cm.Spectral_r,
 plt.axis('off')
 plt.colorbar(im)
 plt.title('S-LASSO weights')
-plot_cv_scores(slcv, errorbars=False)
 
 # plot CV errors
 from nilearn.decoding.sparse_models.cv import plot_cv_scores
+plot_cv_scores(slcv, errorbars=False)
+
+# plot predicted and true ages
 plt.figure()
 linewidth = 3
 ax1 = plt.subplot('211')
