@@ -71,7 +71,7 @@ def tvl1_objective(X, y, w, alpha, l1_ratio, mask=None, shape=None,
 def tvl1_solver(X, y, alpha, l1_ratio, mask=None, loss=None, tol=1e-6,
                 max_iter=1000, backtracking=False, rescale_alpha=True,
                 lipschitz_constant=None, prox_max_iter=5000, verbose=0,
-                callback=None):
+                init=None, callback=None):
     """Minimizes empirical risk for TV-l1 penalized models.
 
     Can handle squared error or logistic regression. The same solver works for
@@ -201,6 +201,7 @@ def tvl1_solver(X, y, alpha, l1_ratio, mask=None, loss=None, tol=1e-6,
 
     # proximal operator of nonsmooth proximable part of energy (f2)
     if loss == "squared":
+        from .projected_landweber import prox_tv_l1
         def f2_prox(w, stepsize, dgap_tol, init=None):
             out, info = prox_tv_l1(
                 unmaskvec(w), weight=alpha * stepsize, l1_ratio=l1_ratio,
@@ -220,6 +221,7 @@ def tvl1_solver(X, y, alpha, l1_ratio, mask=None, loss=None, tol=1e-6,
     w, obj, init = mfista(
         f1, f1_grad, f2_prox, total_energy, lipschitz_constant, w_size,
         dgap_factor=(.1 + l1_ratio) ** 2, tol=tol, verbose=verbose,
-        max_iter=max_iter, callback=callback, backtracking=backtracking)
- 
+        max_iter=max_iter, callback=callback, backtracking=backtracking,
+        init=init)
+
     return w, obj, init
