@@ -29,7 +29,7 @@ def mfista(f1, f1_grad, f2_prox, total_energy, lipschitz_constant,
          Gmooth part of energy (= the loss term).
 
     f1_grad: callable(w) -> np.array
-        Gradient of smooth part of energy
+        Gradient of smooth part of energy.
 
     f2_prox: callable(w, stepsize, dgap_tol, init?) -> float, dict
         Proximal operator of non-smooth part of energy (f2).
@@ -37,22 +37,22 @@ def mfista(f1, f1_grad, f2_prox, total_energy, lipschitz_constant,
         indicates whether the prox computation converged.
 
     total_energy: callable(w) -> float
-        total energy (i.e smooth (f1) + nonsmooth (f2) parts)
+        Total energy (i.e smooth (f1) + nonsmooth (f2) parts).
 
     lipschitz_constant: float
         Lipschitz constant of gradient of f1_grad.
 
     w_size: int
         Size of the solution. f1, f2, f1_grad, f2_prox (fixed l, tol) must
-        accept a w such that w.size = w_size
+        accept a w such that w.size = w_size.
 
     backtracking: bool
         If True, the solver does backtracking in the step size for the proximal
-        operator
+        operator.
 
     tol: float
         Tolerance on the variation of the objective function before breaking.
-        The meaning of tol can be manipulated with the callback function
+        The meaning of tol can be manipulated with the callback function.
 
     dgap_tol: float
         If None, the nonsmooth_prox argument returns a float, with the value,
@@ -69,7 +69,17 @@ def mfista(f1, f1_grad, f2_prox, total_energy, lipschitz_constant,
         Maximum number of iterations for the solver.
 
     pure_ista: bool, optional (default False)
-        if set, then solver defaults to a pure ISTA algorithm
+        If set, then solver defaults to a pure ISTA algorithm.
+
+    init: dict, optional (default None)
+        Initialization parameters for the FISTA. Possible keys are:
+        "w": Initialzation for primal variable.
+        "z": Initialization for dual variable.
+        "stepsize": Initialization for stepsize in forward step.
+        "dgap_factor": Initialization for dual_gap factor.
+        "dgap_tol": Initialization for dgap_tol.
+        "t": initialization for t parameter in sqrt(1 + 4t**2) / 2 acceleration
+             factor.
 
     Returns
     -------

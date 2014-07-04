@@ -71,7 +71,7 @@ def tvl1_objective(X, y, w, alpha, l1_ratio, mask=None, shape=None,
 def tvl1_solver(X, y, alpha, l1_ratio, mask=None, loss=None, tol=1e-6,
                 max_iter=1000, backtracking=False, rescale_alpha=True,
                 lipschitz_constant=None, prox_max_iter=5000, verbose=0,
-                init=None, callback=None):
+                callback=None, init=None):
     """Minimizes empirical risk for TV-l1 penalized models.
 
     Can handle squared error or logistic regression. The same solver works for
@@ -118,6 +118,20 @@ def tvl1_solver(X, y, alpha, l1_ratio, mask=None, loss=None, tol=1e-6,
         Lipschitz constant (i.e an upper bound of) of gradient of smooth part
         of the energy being minimized. If no value is specified (None),
         then it will be calculated.
+
+    init: dict, optional (default None)
+        Initialization parameters for the FISTA. Possible keys are:
+        "w": Initialzation for primal variable.
+        "z": Initialization for dual variable.
+        "stepsize": Initialization for stepsize in forward step.
+        "dgap_factor": Initialization for dual_gap factor.
+        "dgap_tol": Initialization for dgap_tol.
+        "t": initialization for t parameter in sqrt(1 + 4t**2) / 2 acceleration
+             factor.
+
+    callback: callable(dict) -> bool
+        Function called at the end of every energy descendent iteration of the
+        solver. If it returns True, the loop breaks.
 
     Returns
     -------
@@ -201,7 +215,6 @@ def tvl1_solver(X, y, alpha, l1_ratio, mask=None, loss=None, tol=1e-6,
 
     # proximal operator of nonsmooth proximable part of energy (f2)
     if loss == "squared":
-        from .projected_landweber import prox_tv_l1
         def f2_prox(w, stepsize, dgap_tol, init=None):
             out, info = prox_tv_l1(
                 unmaskvec(w), weight=alpha * stepsize, l1_ratio=l1_ratio,
@@ -222,6 +235,6 @@ def tvl1_solver(X, y, alpha, l1_ratio, mask=None, loss=None, tol=1e-6,
         f1, f1_grad, f2_prox, total_energy, lipschitz_constant, w_size,
         dgap_factor=(.1 + l1_ratio) ** 2, tol=tol, verbose=verbose,
         max_iter=max_iter, callback=callback, backtracking=backtracking,
-        init=init)
-
+        init=None)
+ 
     return w, obj, init
