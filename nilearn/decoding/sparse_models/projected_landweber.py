@@ -5,6 +5,8 @@ import numpy as np
 from nilearn.decoding.sparse_models.common import (
     squared_loss_lipschitz_constant, gradient_id, div_id)
 
+ZERO_PLUS = 1e-10
+
 
 def norm_lp(z, p):
     """lp (mixed-)norm."""
@@ -71,16 +73,16 @@ def projected_landweber(A, AT, z, proj_lp, norm_lp, lambd, stepsize, init=None,
         res = z - A(y)
         aux = AT(res)
         dgap = lambd * norm_lp(aux) - np.dot(y, aux)
-        assert dgap >= 0., dgap
+        assert dgap >= 0. or -dgap < ZERO_PLUS, dgap
         y += stepsize * aux  # foreward step
         y = proj_lp(y, lambd)  # backward step
     else:
         converged = False
 
     if return_info:
-        return y, dict(converged=converged)
+        return y, res, dict(converged=converged)
     else:
-        return y
+        return y, res
 
 
 class GradientId(object):
@@ -122,20 +124,19 @@ def prox_tv_l1(im, l1_ratio=.5, weight=50, dgap_tol=5.e-5, max_iter=10,
             (D.ndim + 1, -1)), kappa).ravel()
     norm = lambda w: norm_lp(w.reshape((D.ndim + 1, D.n_features)),
                              (2, 1))
-    out = projected_landweber(DT, D, im.reshape(D.shape[1]), proj, norm,
-                              weight, 2. / D.L, init=init,
-                              max_iter=max_iter, dgap_tol=dgap_tol,
-                              verbose=verbose, return_info=return_info,
-                              align="\t")
+    out = projected_landweber(
+        DT, D, im.reshape(D.shape[1]), proj, norm, weight, 2. / D.L, init=init,
+        max_iter=max_iter, dgap_tol=dgap_tol, return_info=return_info,
+        verbose=verbose, align="\t")
     if return_info:
-        theta, info = out
+        _, res, info = out
     else:
-        theta = out
-    out = im - DT(theta).reshape(im.shape)
+        _, res = out
+    res = res.reshape(im.shape)
     if return_info:
-        return out, info
+        return res, info
     else:
-        return out
+        return res
 
 
 class LinOp(object):
@@ -166,7 +167,7 @@ def test_proj_l2inty_not_outside_ball():
 if __name__ == '__main__':
     from lp1_mixed_norm import proj_lp1
     A = LinOp(np.eye(5)[:, :3])
-    z = np.array([3., 4., 0, 4, 0])
+    z = np.array([3., 4., 0, 4, 0]) + .01 * np.random.randn(5)
     p = 2.
     lambd = 5.
     proj = lambda y, lambd: proj_lp1(y.reshape((-1, 1)), lambd, p=p).ravel()
