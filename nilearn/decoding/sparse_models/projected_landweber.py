@@ -57,8 +57,8 @@ def projected_landweber(A, AT, z, proj_p, p, lambd, stepsize, max_iter=100,
                 align, k + 1, max_iter, dgap)
         if dgap < dgap_tol:
             if verbose:
-                print ("%sConverged after %i iterations (dgap = %g < %g"
-                       " = dgap_tol)" % (align, k + 1, dgap, dgap_tol))
+                print ("%sConverged after %i iterations (%g = dgap < dgap_tol"
+                       " = %g)" % (align, k + 1, dgap, dgap_tol))
             break
         res = z - A(y)
         aux = AT(res)
@@ -83,6 +83,7 @@ class GradientId(object):
         self.L = 1.1 * (4 * len(shape) * (1 - l1_ratio) ** 2 + l1_ratio ** 2)
 
     def __call__(self, w):
+        """matvec operation."""
         return gradient_id(w.reshape(self.input_shape),
                            l1_ratio=self.l1_ratio).reshape(self.shape[0])
 
@@ -97,6 +98,7 @@ class DivId(object):
         self.L = 1.1 * (4 * len(shape) * (1 - l1_ratio) ** 2 + l1_ratio ** 2)
 
     def __call__(self, w):
+        """matvec operation."""
         return -div_id(w.reshape(self.input_shape),
                        l1_ratio=self.l1_ratio).reshape(self.shape[0])
 

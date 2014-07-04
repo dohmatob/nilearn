@@ -207,14 +207,8 @@ def tv_l1_from_gradient(gradient):
 
     """
 
-    return np.sum(np.sqrt(np.sum(gradient[:-1] * gradient[:-1], axis=0) + gradient[-1] ** 2))
-
-    # tv_term = np.sum(np.sqrt(np.sum(gradient[:-1] * gradient[:-1],
-    #                                 axis=0)))
-
-    # l1_term = np.abs(gradient[-1]).sum()
-
-    # return l1_term + tv_term
+    return np.sum(np.sqrt(np.sum(gradient[:-1] * gradient[:-1], axis=0
+                                 ) + gradient[-1] ** 2))
 
 
 def div_id(grad, l1_ratio=.5):
