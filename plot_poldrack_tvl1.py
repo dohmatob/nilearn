@@ -37,7 +37,7 @@ import matplotlib.pyplot as plt
 from nilearn.plotting import plot_stat_map
 
 # weights
-slicer = plot_stat_map(coef_niimg, anat_niimg, title="S-Lasso weights",
+slicer = plot_stat_map(coef_niimg, anat_niimg, title="TV-l1 weights",
                        slicer="y", cut_coords=range(10, 30, 2))
 slicer.contour_map(mask_niimg, levels=[.5], colors='r')
 
