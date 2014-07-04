@@ -92,7 +92,7 @@ def test_lipschitz_constant_lass_logreg():
     assert_equal(a, b)
 
 
-def test_smoothlasso_and_tvl1_same_for_pure_l1(max_iter=10, decimal=2):
+def test_smoothlasso_and_tvl1_same_for_pure_l1(max_iter=10, decimal=1):
     ###############################################################
     # smoothlasso_solver and tvl1_solver should give same results
     # when l1_ratio = 1.
@@ -169,7 +169,7 @@ def test_logreg_with_mask_issue_10():
         model(alpha=alpha, l1_ratio=l1_ratio, mask=mask).fit(X, y)
 
 
-def test_smoothlasso_and_tv_same_for_pure_l1_another_test(decimal=2):
+def test_smoothlasso_and_tv_same_for_pure_l1_another_test(decimal=1):
     ###############################################################
     # smoothlasso_solver and tvl1_solver should give same results
     # when l1_ratio = 1.
