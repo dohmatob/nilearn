@@ -16,7 +16,8 @@ from .common import (squared_loss_lipschitz_constant, gradient_id,
                      squared_loss, squared_loss_grad, _unmask,
                      logistic_grad as logistic_loss_grad,
                      logistic as logistic_loss)
-from .operators import prox_tv_l1, intercepted_prox_tv_l1
+from projected_landweber import prox_tv_l1
+from .operators import intercepted_prox_tv_l1
 from .fista import mfista
 
 

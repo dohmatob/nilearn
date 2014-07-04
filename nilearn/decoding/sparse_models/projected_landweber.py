@@ -53,7 +53,7 @@ def projected_landweber(A, AT, z, proj_p, p, lambd, stepsize, max_iter=100,
     converged = True
     for k in xrange(max_iter):
         if verbose:
-            print "%sPROJECTED LANDWEBER: iteration %i/%i: dgap=%g" % (
+            print "%sProjected LANDWEBER: iteration %i/%i: dgap=%g" % (
                 align, k + 1, max_iter, dgap)
         if dgap < dgap_tol:
             if verbose:
@@ -110,7 +110,7 @@ def prox_tv_l1(im, l1_ratio=.5, weight=50, dgap_tol=5.e-5, max_iter=10,
     out = projected_landweber(DT, D, im.reshape(D.shape[1]), proj,
                               (2, np.inf), weight, 2. / D.L, init=init,
                               max_iter=max_iter, dgap_tol=dgap_tol,
-                              verbose=verbose and 0, return_info=return_info,
+                              verbose=verbose, return_info=return_info,
                               align="\t")
     if return_info:
         theta, info = out
