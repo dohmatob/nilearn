@@ -39,7 +39,10 @@ def proj_lp1(y, kappa, p=2., inplace=True):
     """
 
     # Misc / sanity
-    assert y.ndim == 2, y
+    if y.ndim == 1:
+        y = np.array(y)[np.newaxis, :]
+    else:
+        assert y.ndim == 2, y.ndim
     out = y if inplace else np.array(y)
     ncol = y.shape[1]
 

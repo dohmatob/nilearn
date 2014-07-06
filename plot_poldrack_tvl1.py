@@ -23,7 +23,7 @@ anat_niimg = nibabel.Nifti1Image(_unmask(X.mean(axis=0), mask.ravel()
 import os
 from nilearn.decoding.sparse_models.cv import TVl1RegressorCV
 n_jobs = int(os.environ.get("N_JOBS", 1))
-tvl1cv = TVl1RegressorCV(n_alphas=10, tol=1e-4, max_iter=1000,
+tvl1cv = TVl1RegressorCV(n_alphas=10, tol=1e-4, max_iter=100,
                        l1_ratio=.75, verbose=1, memory=memory,
                        mask=mask, n_jobs=n_jobs).fit(X, y)
 

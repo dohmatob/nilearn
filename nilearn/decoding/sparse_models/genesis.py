@@ -1,6 +1,5 @@
 import warnings
 import numpy as np
-from scipy import linalg
 
 
 def norm_lp(z, p):
@@ -264,7 +263,7 @@ def prox_tv_l1(im, l1_ratio=0., weight=50, dgap_tol=5.e-5, max_iter=10,
     out = fast_projected_landweber(
         DT, D, im.ravel(), weight, dual_norm, proj, dgap_tol=dgap_tol,
         init=init, max_iter=max_iter, no_acc=no_acc, callback=callback,
-        verbose=verbose, align="\t")
+        verbose=verbose and 0, align="\t")
 
     if return_info:
         return out[1].reshape(shape), out[2]
