@@ -416,8 +416,9 @@ def tvl1_objective(X, y, w, alpha, l1_ratio, mask, loss="mse"):
 
 
 def tvl1_solver(X, y, alpha, l1_ratio, mask, loss=None, max_iter=100,
-                rescale_alpha=True, lipschitz_constant=None, init=None,
-                prox_max_iter=5000, tol=1e-4, callback=None, verbose=1):
+                rescale_alpha=True, restart=False, lipschitz_constant=None,
+                init=None, prox_max_iter=5000, tol=1e-4, callback=None,
+                verbose=1):
     """Minimizes empirical risk for TV-l1 penalized models.
 
     Can handle least-squares (mean square error --a.k.a mse) or logistic
@@ -559,7 +560,7 @@ def tvl1_solver(X, y, alpha, l1_ratio, mask, loss=None, max_iter=100,
 
     # invoke m-FISTA solver
     w, obj, init = mfista(
-        f1, f1_grad, f2_prox, total_energy, lipschitz_constant, w_size,
+        f1_grad, f2_prox, total_energy, lipschitz_constant, w_size, restart=restart,
         dgap_factor=(.1 + l1_ratio) ** 2, tol=tol, init=init, verbose=verbose,
         max_iter=max_iter, callback=callback)
  
