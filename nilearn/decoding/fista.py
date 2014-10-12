@@ -166,9 +166,9 @@ def mfista(f1_grad, f2_prox, total_energy, lipschitz_constant, w_size,
 
         # Backward (prox) step
         for _ in range(10):
-            w, prox_info = f2_prox(z - stepsize * gradient_buffer,
-                                   stepsize, dgap_factor * dgap_tol,
-                                   init=w)
+            w, prox_info = f2_prox(
+                z - stepsize * gradient_buffer, stepsize,
+                max(dgap_factor * dgap_tol, 1e-10), init=w)
             w = w.ravel()
             energy = total_energy(w)
 
@@ -187,20 +187,16 @@ def mfista(f1_grad, f2_prox, total_energy, lipschitz_constant, w_size,
         energy_delta = old_energy - energy
         old_energy = energy
 
-        if restart and np.dot(z - w, w - w_old) > 0.:
-            if verbose:
-                print "Restarting..."
-            w = w_old
-            z = w
-            t = 1.
-            continue
-
         # z update
         if energy_delta < 0.:
             # M-FISTA strategy: rewind and switch temporarily to an ISTA step
             z = w_old.copy()
             w = w_old.copy()
             ista_step = True
+            if restart:
+                if verbose:
+                    print "Restarting..."
+                t = 1.
             if verbose:
                 print 'Monotonous FISTA: Switching to ISTA'
         else:

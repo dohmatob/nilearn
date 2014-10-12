@@ -250,7 +250,7 @@ def _pre_fit_labels(model, y):
 def smooth_lasso_squared_loss(X, y, alpha, l1_ratio, mask, init=None,
                               max_iter=1000, tol=1e-4, callback=None,
                               lipschitz_constant=None, rescale_alpha=True,
-                              verbose=0):
+                              verbose=1, restart=False):
     """Computes a solution for the Smooth Lasso regression problem, as in the
     SmoothLassoRegressor estimator, with no data preprocessing.
 
@@ -306,9 +306,10 @@ def smooth_lasso_squared_loss(X, y, alpha, l1_ratio, mask, init=None,
     total_energy = lambda w: f1(w) + f2(w)
 
     return mfista(
-        f1, f1_grad, f2_prox, total_energy, lipschitz_constant,
+        f1_grad, f2_prox, total_energy, lipschitz_constant,
         model_size, dgap_factor=(.1 + l1_ratio) ** 2, callback=callback,
-        tol=tol, max_iter=max_iter, verbose=verbose, init=init)
+        tol=tol, max_iter=max_iter, verbose=verbose, init=init,
+        restart=restart)
 
 
 def smooth_lasso_logistic(X, y, alpha, l1_ratio, mask, init=None,
@@ -372,7 +373,7 @@ def smooth_lasso_logistic(X, y, alpha, l1_ratio, mask, init=None,
 
     # finally, run the solver proper
     return mfista(
-        f1, f1_grad, f2_prox, total_energy, lipschitz_constant,
+        f1_grad, f2_prox, total_energy, lipschitz_constant,
         model_size, dgap_factor=(.1 + l1_ratio) ** 2, callback=callback,
         tol=tol, max_iter=max_iter, verbose=verbose, init=init)
 

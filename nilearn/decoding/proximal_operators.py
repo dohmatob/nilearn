@@ -67,10 +67,10 @@ def _objective_function_prox_tvl1(input_img, output_img, gradient, l1_ratio,
             + weight * tv_l1_from_gradient(gradient))
 
 
-def prox_tvl1(input_img, l1_ratio=.05, weight=50, dgap_tol=5.e-5, x_tol=None,
-               max_iter=200, check_gap_frequency=4, val_min=None,
-               val_max=None, verbose=False, fista=True, init=None,
-               return_info=False):
+def prox_tvl1(input_img, l1_ratio=.05, weight=50, dgap_tol=5.e-5,
+              x_tol=None, max_iter=200, check_gap_frequency=4,
+              val_min=None, val_max=None, verbose=False, fista=True,
+              init=None, return_info=False):
     """
     Compute the TV + l1 proximal (ie total-variation +l1 denoising) on
     2-d and 3-d images
