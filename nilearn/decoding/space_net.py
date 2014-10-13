@@ -26,10 +26,10 @@ from sklearn.feature_selection import (f_regression, f_classif,
 from sklearn.externals.joblib import Memory, Parallel, delayed
 from sklearn.cross_validation import check_cv
 from ..input_data import NiftiMasker
-from ..image.image import _smooth_array
+from ..image.image import _fast_smooth_array
 from .._utils.fixes import (center_data, LabelBinarizer, roc_auc_score,
                             atleast2d_or_csr)
-from .objective_functions import _sigmoid
+from .objective_functions import _sigmoid, _unmask
 from .space_net_solvers import (tvl1_solver, smooth_lasso_logistic,
                                 smooth_lasso_squared_loss)
 
@@ -177,7 +177,7 @@ class EarlyStoppingCallback(object):
             return score
 
 
-def path_scores(solver, X, y, nifti_masker, alphas, l1_ratio, train,
+def path_scores(solver, X, y, mask, alphas, l1_ratio, train,
                 test, solver_params, is_classif=False, init=None, key=None,
                 debias=False, ymean=0., screening_percentile=10.):
     """Function to compute scores of different alphas in regression and
@@ -191,7 +191,7 @@ def path_scores(solver, X, y, nifti_masker, alphas, l1_ratio, train,
     y : 1D array of length n_samples
         Response vector; one value per sample.
 
-    nifti_masker : NiftiMasker instance
+    mask : 3D array of booleans
         Mask defining brain ROIs.
 
     alphas : list of floats
@@ -209,9 +209,6 @@ def path_scores(solver, X, y, nifti_masker, alphas, l1_ratio, train,
 
     """
 
-    # solver only used arrays
-    mask = nifti_masker.mask_img_.get_data().astype(np.bool)
-
     # misc
     verbose = solver_params.get('verbose', 0)
     alphas = sorted(alphas)[::-1]
@@ -219,14 +216,15 @@ def path_scores(solver, X, y, nifti_masker, alphas, l1_ratio, train,
     # univariate feature screening
     if screening_percentile < 100.:
         # smooth the data before screening
-        sX = nifti_masker.transform(nibabel.Nifti1Image(
-                _smooth_array(
-                    nifti_masker.inverse_transform(X).get_data(),
-                    nifti_masker.mask_img_.get_affine(),
-                    fwhm='fast'), nifti_masker.mask_img_.get_affine()))
-
         selector = SelectPercentile(f_classif if is_classif else f_regression,
-                                    percentile=screening_percentile).fit(sX, y)
+                                    percentile=screening_percentile)
+        sX = np.ndarray(list(mask.shape) + [len(X)])
+        for i, row in enumerate(X):
+            sX[:, :, :, i] = _unmask(row, mask)
+        sX = _fast_smooth_array(sX)
+        sX = np.array([sX[:, :, :, i][mask] for i in xrange(sX.shape[-1])])
+        print sX.shape
+        selector.fit(sX, y)
         support = selector.get_support()
         mask[mask] = (support > 0)
         X = X[:, support]
@@ -582,6 +580,7 @@ class SpaceNet(LinearModel, RegressorMixin):
                                        memory=self.memory_)
         X = self.masker_.fit_transform(X)
         self.mask_img_ = self.masker_.mask_img_
+        self.mask_ = self.mask_img_.get_data().astype(np.bool)
         n_samples, _ = X.shape
         y = np.array(y).copy().ravel()
 
@@ -645,7 +644,7 @@ class SpaceNet(LinearModel, RegressorMixin):
                              max_iter=self.max_iter, rescale_alpha=True)
         for test_scores, best_w, c in Parallel(n_jobs=self.n_jobs)(
             delayed(self.memory_.cache(path_scores))(
-                solver, X, _ovr_y(c), self.masker_, alphas, self.l1_ratio,
+                solver, X, _ovr_y(c), self.mask_, alphas, self.l1_ratio,
                 train, test, solver_params, is_classif=self.is_classif, key=c,
                 debias=self.debias, ymean=ymean,
                 screening_percentile=self.screening_percentile
