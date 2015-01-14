@@ -28,11 +28,10 @@ condition_mask_test = np.logical_and(condition_mask, labels['chunks'] > 6)
 # make X (design matrix) and y (response variable)
 import nibabel
 niimgs  = nibabel.load(data_files.func[0])
-X_train = nibabel.Nifti1Image(niimgs.get_data()[:, :, :, condition_mask_train],
-                        niimgs.get_affine())
+data, affine = niimgs.get_data(), niimgs.get_affine()
+X_train = nibabel.Nifti1Image(data[:, :, :, condition_mask_train], affine)
 y_train = target[condition_mask_train]
-X_test = nibabel.Nifti1Image(niimgs.get_data()[:, :, :, condition_mask_test],
-                        niimgs.get_affine())
+X_test = nibabel.Nifti1Image(data[:, :, :, condition_mask_test], affine)
 y_test = target[condition_mask_test]
 
 
@@ -49,19 +48,57 @@ for penalty in penalties:
     accuracies[penalty] = (y_pred == y_test).mean() * 100.
     decoders[penalty] = decoder
 
+
+# construct mask for super-support of all decoders
+support_mask = decoder.mask_img_.get_data().astype(np.bool)
+support = np.zeros(support_mask.sum())
+for decoder in decoders.itervalues():
+    support[decoder.coef_[0] != 0.] = 1
+support_mask[support_mask] = support
+support_mask = nibabel.Nifti1Image(support_mask.astype(np.float),
+                           decoder.mask_img_.get_affine())
+
+
+# fit SVC
+from sklearn.grid_search import GridSearchCV
+from sklearn.svm import SVC
+from sklearn.base import clone
+high = decoders.values()[0].alpha_grids_.max()
+low = high * decoder.eps
+gammas = np.reciprocal(np.logspace(np.log10(high), np.log10(low),
+                                   decoders.values()[0].n_alphas))
+masker = clone(decoder.masker_)
+masker.set_params(mask_img=support_mask)
+X_train = masker.fit_transform(X_train)
+svc = SVC(kernel='linear')
+decoder = GridSearchCV(estimator=svc, param_grid=dict(gamma=gammas), n_jobs=2)
+decoder = GridSearchCV(estimator=svc, param_grid=dict(gamma=gammas), n_jobs=2)
+decoder.fit(X_train, y_train)
+y_pred = decoder.predict(masker.transform(X_test))
+decoder.coef_img_ = masker.inverse_transform(decoder.best_estimator_.coef_)
+accuracies["SVC"] = (y_pred == y_test).mean() * 100.
+decoders["SVC"] = decoder
+
+
 ### Visualization #############################################################
 import matplotlib.pyplot as plt
 from nilearn.image import mean_img
 from nilearn.plotting import plot_stat_map
 background_img = mean_img(data_files.func[0])
+background_img.to_filename("haxby_background_img.nii.gz")
 print "Results"
 print "=" * 80
+
 for penalty, decoder in sorted(decoders.items()):
     coef_img = decoder.coef_img_
-    plot_stat_map(coef_img, background_img,
-                  title="%s: accuracy %g%%" % (penalty, accuracies[penalty]),
-                  cut_coords=(20, -34, -16))
-    coef_img.to_filename('haxby_%s_weights.nii' % penalty)
+    coef_img_filename = 'haxby_%s_weights.nii.gz' % penalty
+    # fig = plt.figure(figsize=(3, 4))
+    slicer = plot_stat_map(coef_img, background_img,  # figure=fig,
+                           display_mode="xyz"[1:3],
+                           cut_coords=(20, -34, -16)[1:3])
+    slicer.add_contours(support_mask)
+    plt.savefig(coef_img_filename.split(".")[0] + ".png")
+    coef_img.to_filename(coef_img_filename)
     print "- %s %s" % (penalty, '-' * 60)
     print "Number of train samples : %i" % condition_mask_train.sum()
     print "Number of test samples  : %i" % condition_mask_test.sum()
