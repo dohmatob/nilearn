@@ -98,24 +98,24 @@ background_img.to_filename("haxby_background_img.nii.gz")
 print "Results"
 print "=" * 80
 
-# for category in categories:
-#     print category
-#     for penalty, decoder in sorted(decoders.items()):
-#         coef_img = decoder.coef_img_
-#         coef_img_filename = 'haxby_%s_weights.nii.gz' % penalty
-#         slicer = plot_stat_map(coef_img, background_img,
-#                                display_mode="xyz"[1:3],
-#                                cut_coords=(20, -34, -16)[1:3])
-#         slicer.add_contours(support_mask)
-#         plt.savefig(coef_img_filename.split(".")[0] + ".png")
-#         coef_img.to_filename(coef_img_filename)
-#         print "\t- %s %s" % (penalty, '-' * 60)
-#         print "\tNumber of train samples : %i" % condition_mask_train.sum()
-#         print "\tNumber of test samples  : %i" % condition_mask_test.sum()
-#         print "\tClassification accuracy : %g%%" % (
-#             accuracies[penalty][category])
-#         print "_" * 80
-#     print
+for category in categories:
+    print category
+    for penalty, decoder in sorted(decoders.items()):
+        coef_img = decoder.coef_img_
+        coef_img_filename = 'haxby_%s_weights.nii.gz' % penalty
+        slicer = plot_stat_map(coef_img, background_img,
+                               display_mode="xyz"[1:3],
+                               cut_coords=(20, -34, -16)[1:3])
+        slicer.add_contours(support_mask)
+        plt.savefig(coef_img_filename.split(".")[0] + ".png")
+        coef_img.to_filename(coef_img_filename)
+        print "\t- %s %s" % (penalty, '-' * 60)
+        print "\tNumber of train samples : %i" % condition_mask_train.sum()
+        print "\tNumber of test samples  : %i" % condition_mask_test.sum()
+        print "\tClassification accuracy : %g%%" % (
+            accuracies[penalty][category])
+        print "_" * 80
+    print
 
 
 ###############################################################################
@@ -132,5 +132,6 @@ for color, (penalty, decoder) in zip(
     plt.bar(tick_position, score_means, label=penalty,
             width=.11, color=color)
     tick_position = tick_position + .09
+plt.savefig("haxby_barplot.png")
 
 plt.show()
