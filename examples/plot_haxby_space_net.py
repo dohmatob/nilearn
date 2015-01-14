@@ -21,7 +21,7 @@ labels = np.recfromcsv(data_files.session_target[0], delimiter=" ")
 
 ### split data into train and test samples ####################################
 target = labels['labels']
-condition_mask = np.logical_or(target == "face", target == "house")
+condition_mask = np.logical_or(target == "chair", target == "house")
 condition_mask_train = np.logical_and(condition_mask, labels['chunks'] <= 6)
 condition_mask_test = np.logical_and(condition_mask, labels['chunks'] > 6)
 
@@ -40,9 +40,11 @@ from nilearn.decoding import SpaceNetClassifier
 penalties = ['smooth-lasso', 'tv-l1']
 decoders = {}
 accuracies = {}
+n_jobs = 36
 for penalty in penalties:
     ### Fit model on train data and predict on test data ######################
-    decoder = SpaceNetClassifier(memory="cache", penalty=penalty, verbose=2)
+    decoder = SpaceNetClassifier(memory="cache", penalty=penalty, verbose=2,
+                                 n_jobs=n_jobs, l1_ratios=[.25, .5, .75])
     decoder.fit(X_train, y_train)
     y_pred = decoder.predict(X_test)
     accuracies[penalty] = (y_pred == y_test).mean() * 100.
@@ -56,7 +58,7 @@ for decoder in decoders.itervalues():
     support[decoder.coef_[0] != 0.] = 1
 support_mask[support_mask] = support
 support_mask = nibabel.Nifti1Image(support_mask.astype(np.float),
-                           decoder.mask_img_.get_affine())
+                                   decoder.mask_img_.get_affine())
 
 
 # fit SVC
@@ -71,8 +73,8 @@ masker = clone(decoder.masker_)
 masker.set_params(mask_img=support_mask)
 X_train = masker.fit_transform(X_train)
 svc = SVC(kernel='linear')
-decoder = GridSearchCV(estimator=svc, param_grid=dict(gamma=gammas), n_jobs=2)
-decoder = GridSearchCV(estimator=svc, param_grid=dict(gamma=gammas), n_jobs=2)
+decoder = GridSearchCV(estimator=svc, param_grid=dict(gamma=gammas),
+                       n_jobs=n_jobs)
 decoder.fit(X_train, y_train)
 y_pred = decoder.predict(masker.transform(X_test))
 decoder.coef_img_ = masker.inverse_transform(decoder.best_estimator_.coef_)
