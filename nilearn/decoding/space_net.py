@@ -16,10 +16,8 @@ import numbers
 import time
 import sys
 from functools import partial
-
 import numpy as np
 from scipy import stats, ndimage
-
 from sklearn.base import RegressorMixin, clone
 from sklearn.utils.extmath import safe_sparse_dot
 from sklearn.linear_model.base import LinearModel
@@ -115,7 +113,8 @@ def _univariate_feature_screening(
         for sample in xrange(sX.shape[0]):
             sX[sample] = ndimage.gaussian_filter(
                 _unmask(X[sample].copy(),  # avoid modifying X
-                        mask), (smoothing_fwhm, smoothing_fwhm, smoothing_fwhm))[mask]
+                        mask), (smoothing_fwhm, smoothing_fwhm,
+                                smoothing_fwhm))[mask]
     else:
         sX = X
 
@@ -206,13 +205,15 @@ class EarlyStoppingCallback(object):
         rising. We use a Spearman correlation (btween X_test.w and y_test)
         for scoring.
     """
-    def __init__(self, X_test, y_test, is_classif, debias=False, verbose=0):
+    def __init__(self, X_test, y_test, is_classif, debias=False, verbose=0,
+                 tol=None):
         self.X_test = X_test
         self.y_test = y_test
         self.is_classif = is_classif
         self.debias = debias
         self.verbose = verbose
-        self.tol = -1e-4 if self.is_classif else -1e-2
+        self.tol = (-1e-4 if self.is_classif else -1e-2
+                     ) if tol is None else tol
         self.test_scores = []
         self.counter = 0.
 
@@ -290,8 +291,8 @@ class EarlyStoppingCallback(object):
 
 def path_scores(solver, X, y, mask, alphas, l1_ratios, train, test,
                 solver_params, is_classif=False, n_alphas=10, eps=1E-3,
-                key=None, debias=False, Xmean=None,
-                screening_percentile=20., verbose=1):
+                key=None, debias=False, Xmean=None, verbose=1,
+                screening_percentile=20., early_stopping_tol=None):
     """Function to compute scores of different alphas in regression and
     classification used by CV objects
 
@@ -299,6 +300,7 @@ def path_scores(solver, X, y, mask, alphas, l1_ratios, train, test,
     ----------
     X : 2D array of shape (n_samples, n_features)
         Design matrix, one row per sample point.
+
 
     y : 1D array of length n_samples
         Response vector; one value per sample.
@@ -396,7 +398,7 @@ def path_scores(solver, X, y, mask, alphas, l1_ratios, train, test,
                 # setup callback mechanism for early stopping
                 early_stopper = EarlyStoppingCallback(
                     X_test, y_test, is_classif=is_classif, debias=debias,
-                    verbose=verbose)
+                    verbose=verbose, tol=early_stopping_tol)
                 w, _, init = solver(
                     X_train, y_train, alpha, l1_ratio, mask=mask, init=init,
                     callback=early_stopper, verbose=max(verbose - 1, 0.),
@@ -604,7 +606,7 @@ class BaseSpaceNet(LinearModel, RegressorMixin):
                  memory=Memory(None, verbose=0), copy_data=True,
                  standardize=True, verbose=0, n_jobs=1, eps=1e-3,
                  cv=8, fit_intercept=True, screening_percentile=20.,
-                 debias=False):
+                 debias=False, early_stopping_tol=True):
         self.penalty = penalty
         self.is_classif = is_classif
         self.loss = loss
@@ -624,6 +626,7 @@ class BaseSpaceNet(LinearModel, RegressorMixin):
         self.cv = cv
         self.screening_percentile = screening_percentile
         self.debias = debias
+        self.early_stopping_tol = early_stopping_tol
         self.low_pass = low_pass
         self.high_pass = high_pass
         self.t_r = t_r
@@ -822,7 +825,8 @@ class BaseSpaceNet(LinearModel, RegressorMixin):
                 solver_params, n_alphas=self.n_alphas, eps=self.eps,
                 is_classif=self.loss == "logistic", key=(cls, fold),
                 debias=self.debias, verbose=self.verbose,
-                screening_percentile=self.screening_percentile_
+                screening_percentile=self.screening_percentile_,
+                early_stopping_tol=self.early_stopping_tol
                 ) for cls in xrange(n_problems) for fold in xrange(n_folds)):
             self.best_model_params_.append((best_alpha, best_l1_ratio))
             self.alpha_grids_.append(alphas)
@@ -1065,7 +1069,7 @@ class SpaceNetClassifier(BaseSpaceNet):
                  memory=Memory(None), copy_data=True, standardize=True,
                  verbose=0, n_jobs=1, eps=1e-3,
                  cv=8, fit_intercept=True, screening_percentile=20.,
-                 debias=False):
+                 debias=False, **kwargs):
         super(SpaceNetClassifier, self).__init__(
             penalty=penalty, is_classif=True, l1_ratios=l1_ratios,
             alphas=alphas, n_alphas=n_alphas, target_shape=target_shape,
@@ -1074,7 +1078,7 @@ class SpaceNetClassifier(BaseSpaceNet):
             n_jobs=n_jobs, eps=eps, cv=cv, debias=debias,
             fit_intercept=fit_intercept, standardize=standardize,
             screening_percentile=screening_percentile, loss=loss,
-            target_affine=target_affine, verbose=verbose)
+            target_affine=target_affine, verbose=verbose, **kwargs)
 
     def _binarize_y(self, y):
         """Helper function invoked just before fitting a classifier"""
@@ -1220,7 +1224,8 @@ class SpaceNetRegressor(BaseSpaceNet):
                  target_shape=None, low_pass=None, high_pass=None, t_r=None,
                  max_iter=1000, tol=1e-4, memory=Memory(None), copy_data=True,
                  standardize=True, verbose=0, n_jobs=1, eps=1e-3, cv=8,
-                 fit_intercept=True, screening_percentile=20., debias=False):
+                 fit_intercept=True, screening_percentile=20., debias=False,
+                 **kwargs):
         super(SpaceNetRegressor, self).__init__(
             penalty=penalty, is_classif=False, l1_ratios=l1_ratios,
             alphas=alphas, n_alphas=n_alphas, target_shape=target_shape,
@@ -1229,4 +1234,4 @@ class SpaceNetRegressor(BaseSpaceNet):
             n_jobs=n_jobs, eps=eps, cv=cv, debias=debias,
             fit_intercept=fit_intercept, standardize=standardize,
             screening_percentile=screening_percentile,
-            target_affine=target_affine, verbose=verbose)
+            target_affine=target_affine, verbose=verbose, **kwargs)
