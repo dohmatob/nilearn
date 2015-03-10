@@ -136,6 +136,7 @@ class NiftiMasker(BaseMasker, CacheMixin):
         Parameters
         ----------
         imgs: list of Niimg-like objects
+            See http://nilearn.github.io/building_blocks/manipulating_mr_images.html#niimg.
             Data on which the mask must be calculated. If this is a list,
             the affine is considered the same for all.
         """
@@ -162,10 +163,10 @@ class NiftiMasker(BaseMasker, CacheMixin):
                 print "[%s.fit] Computing the mask" % self.__class__.__name__
             imgs = _utils.check_niimgs(imgs, accept_3d=True)
             self.mask_img_ = self._cache(compute_mask,
-                              memory_level=1,
+                              func_memory_level=1,
                               ignore=['verbose'])(
                 imgs,
-                verbose=(self.verbose - 1),
+                verbose=max(0, self.verbose - 1),
                 **mask_args)
         else:
             self.mask_img_ = _utils.check_niimg(self.mask_img,
@@ -175,7 +176,7 @@ class NiftiMasker(BaseMasker, CacheMixin):
         # Resampling: allows the user to change the affine, the shape or both
         if self.verbose > 0:
             print "[%s.fit] Resampling mask" % self.__class__.__name__
-        self.mask_img_ = self._cache(image.resample_img, memory_level=1)(
+        self.mask_img_ = self._cache(image.resample_img, func_memory_level=1)(
             self.mask_img_,
             target_affine=self.target_affine,
             target_shape=self.target_shape,

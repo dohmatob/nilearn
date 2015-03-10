@@ -112,7 +112,7 @@ def _plot_img_with_bg(img, bg_img=None, cut_coords=None,
 
 def plot_img(img, cut_coords=None, output_file=None, display_mode='ortho',
             figure=None, axes=None, title=None, threshold=None,
-            annotate=True, draw_cross=True, black_bg=False, **kwargs):
+            annotate=True, draw_cross=True, black_bg=False, colorbar=False, **kwargs):
     """ Plot cuts of a given image (by default Frontal, Axial, and Lateral)
 
         Parameters
@@ -162,6 +162,8 @@ def plot_img(img, cut_coords=None, output_file=None, display_mode='ortho',
             you wish to save figures with a black background, you
             will need to pass "facecolor='k', edgecolor='k'" to pylab's
             savefig.
+        colorbar: boolean, optional
+            If True, display a colorbar on the right of the plots.
         kwargs: extra keyword arguments, optional
             Extra keyword arguments passed to pylab.imshow
     """
@@ -170,7 +172,7 @@ def plot_img(img, cut_coords=None, output_file=None, display_mode='ortho',
                     figure=figure, axes=axes, title=title,
                     threshold=threshold, annotate=annotate,
                     draw_cross=draw_cross,
-                    black_bg=black_bg, **kwargs)
+                    black_bg=black_bg, colorbar=colorbar, **kwargs)
 
     return display
 
@@ -409,7 +411,7 @@ def plot_epi(epi_img=None, cut_coords=None, output_file=None,
             will need to pass "facecolor='k', edgecolor='k'" to pylab's
             savefig.
         cmap: matplotlib colormap, optional
-            The colormap for the anat
+            The colormap for specified image
         threshold : a number, None, or 'auto'
             If None is given, the image is not thresholded.
             If a number is given, it is used to threshold the image:
@@ -564,7 +566,7 @@ def plot_stat_map(stat_map_img, bg_img=MNI152TEMPLATE, cut_coords=None,
             will need to pass "facecolor='k', edgecolor='k'" to pylab's
             savefig.
         cmap: matplotlib colormap, optional
-            The colormap for the anat
+            The colormap for specified image
 
         Notes
         -----
@@ -651,7 +653,7 @@ def plot_glass_brain(stat_map_img,
             will need to pass "facecolor='k', edgecolor='k'" to pylab's
             savefig.
         cmap: matplotlib colormap, optional
-            The colormap for the anat
+            The colormap for specified image
         alpha: float between 0 and 1
             Alpha transparency for the brain schematics
 

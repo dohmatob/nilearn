@@ -38,12 +38,12 @@ from .space_net_solvers import (tvl1_solver, smooth_lasso_logistic,
 MNI152_BRAIN_VOLUME = 1827243.
 
 
-def _get_mask_volume(mask):
+def _get_mask_volume(mask_img):
     """Computes the volume of a brain mask in mm^3
 
     Parameters
     ----------
-    mask : nibabel image object
+    mask_img : nibabel image object
         Input image whose voxel dimensions are to be computed.
 
     Returns
@@ -51,8 +51,8 @@ def _get_mask_volume(mask):
     vol : float
         The computed volume.
     """
-    vox_dims = mask.get_header().get_zooms()[:3]
-    return 1. * np.prod(vox_dims) * mask.get_data().astype(np.bool).sum()
+    vox_dims = mask_img.get_header().get_zooms()[:3]
+    return 1. * np.prod(vox_dims) * mask_img.get_data().astype(np.bool).sum()
 
 
 def _crop_mask(mask):
@@ -69,7 +69,7 @@ def _crop_mask(mask):
 
 
 def _univariate_feature_screening(
-        X, y, mask, is_classif, screening_percentile, smooth=2.):
+        X, y, mask, is_classif, screening_percentile, smoothing_fwhm=2.):
     """
     Selects the most import features, via a univariate test
 
@@ -91,7 +91,7 @@ def _univariate_feature_screening(
         Only the `screening_percentile * 100" percent most import voxels will
         be retained.
 
-    smooth : float, optional (default 2.)
+    smoothing_fwhm : float, optional (default 2.)
         FWHM for isotropically smoothing the data X before F-testing. A value
         of zero means "don't smooth".
 
@@ -110,12 +110,12 @@ def _univariate_feature_screening(
         original mask.
     """
     # smooth the data (with isotropic Gaussian kernel) before screening
-    if smooth > 0.:
+    if smoothing_fwhm > 0.:
         sX = np.empty(X.shape)
         for sample in xrange(sX.shape[0]):
             sX[sample] = ndimage.gaussian_filter(
                 _unmask(X[sample].copy(),  # avoid modifying X
-                        mask), (smooth, smooth, smooth))[mask]
+                        mask), (smoothing_fwhm, smoothing_fwhm, smoothing_fwhm))[mask]
     else:
         sX = X
 
@@ -535,10 +535,6 @@ class BaseSpaceNet(LinearModel, RegressorMixin):
         axis 0. This is here because nearly all linear models will want
         their data to be centered.
 
-    normalize : boolean, optional (default False)
-        If True, then the data (X, y) will be normalized (to have unit std)
-        before regression.
-
     fit_intercept : bool
         Fit or not an intercept.
 
@@ -692,11 +688,11 @@ class BaseSpaceNet(LinearModel, RegressorMixin):
 
         Parameters
         ----------
-        X : list of filenames or NiImages of length n_samples, or 2D array of
-           shape (n_samples, n_features)
-            Brain images on which the which a structured weights map is to be
-            learned. This is the independent variable (e.g gray-matter maps
-            from VBM analysis, etc.)
+        X : list of Niimg-like objects
+            See http://nilearn.github.io/building_blocks/
+            manipulating_mr_images.html#niimg.
+            Data on which model is to be fitted. If this is a list,
+            the affine is considered the same for all.
 
         y : array or list of length n_samples
             The dependent variable (age, sex, QI, etc.)
@@ -803,14 +799,13 @@ class BaseSpaceNet(LinearModel, RegressorMixin):
                 "Brain mask is bigger than volume of standard brain!")
         self.screening_percentile_ = self.screening_percentile * (
             mask_volume / MNI152_BRAIN_VOLUME)
-        if self.verbose > 10:
+        if self.verbose > 1:
             print "Mask volume = %gmm^3 = %gcm^3" % (
-                mask_volume, mask_volume / 1000.)
+                mask_volume, mask_volume / 1.e3)
             print "Standard brain volume = %gmm^3 = %gcm^3" % (
-                MNI152_BRAIN_VOLUME, MNI152_BRAIN_VOLUME / 1000.)
+                MNI152_BRAIN_VOLUME, MNI152_BRAIN_VOLUME / 1.e3)
             print "Original screening-percentile: %g" % (
                 self.screening_percentile)
-        if self.verbose > 1:
             print "Volume-corrected screening-percentile: %g" % (
                 self.screening_percentile_)
 
@@ -901,8 +896,11 @@ class BaseSpaceNet(LinearModel, RegressorMixin):
 
         Parameters
         ----------
-        X : ndarray, shape(n_samples, n_features)
-            Samples.
+        X : list of Niimg-like objects
+            See http://nilearn.github.io/building_blocks/
+            manipulating_mr_images.html#niimg.
+            Data on prediction is to be made. If this is a list,
+            the affine is considered the same for all.
 
         Returns
         -------
@@ -1002,10 +1000,6 @@ class SpaceNetClassifier(BaseSpaceNet):
         If set, then we'll center the data (X, y) have mean zero along axis 0.
         This is here because nearly all linear models will want their data
         to be centered.
-
-    normalize : boolean, optional (default False)
-        If True, then the data (X, y) will be normalized (to have unit std)
-        before regression.
 
     fit_intercept : bool
         Fit or not an intercept.
@@ -1167,10 +1161,6 @@ class SpaceNetRegressor(BaseSpaceNet):
         If set, then we'll center the data (X, y) have mean zero along axis 0.
         This is here because nearly all linear models will want their data
         to be centered.
-
-    normalize : boolean, optional (default False)
-        If True, then the data (X, y) will be normalized (to have unit std)
-        before regression.
 
     fit_intercept : bool
         Fit or not an intercept.

@@ -5,8 +5,10 @@ Utilities to resample a Nifti Image
 # License: simplified BSD
 
 import warnings
+from distutils.version import LooseVersion
 
 import numpy as np
+import scipy
 from scipy import ndimage, linalg
 from nibabel import Nifti1Image
 
@@ -235,6 +237,12 @@ def _resample_one_img(data, A, A_inv, b, target_shape,
         data = _extrapolate_out_mask(data, np.logical_not(not_finite),
                                      iterations=2)[0]
 
+    # See https://github.com/nilearn/nilearn/issues/346 Copying the
+    # array makes it C continuous and as such the int32 index in the C
+    # code is a lot less likely to overflow
+    if (LooseVersion(scipy.__version__) < LooseVersion('0.14.1')):
+        data = data.copy()
+
     # The resampling itself
     ndimage.affine_transform(data, A,
                              offset=np.dot(A_inv, b),
@@ -244,7 +252,9 @@ def _resample_one_img(data, A, A_inv, b, target_shape,
 
     # Bug in ndimage.affine_transform when out does not have native endianness
     # see https://github.com/nilearn/nilearn/issues/275
-    if not out.dtype.isnative:
+    # Bug was fixed in scipy 0.15
+    if (LooseVersion(scipy.__version__) < LooseVersion('0.15') and
+        not out.dtype.isnative):
         out.byteswap(True)
 
     if has_not_finite:
@@ -349,7 +359,7 @@ def resample_img(img, target_affine=None, target_shape=None,
         interpolation_order = 0
     else:
         message = ("interpolation must be either 'continuous' "
-                   "or 'nearest' but it was set to '{}'").format(interpolation)
+                   "or 'nearest' but it was set to '{0}'").format(interpolation)
         raise ValueError(message)
 
     if isinstance(img, basestring):

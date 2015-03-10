@@ -542,10 +542,10 @@ class GroupSparseCovariance(BaseEstimator, CacheMixin):
 
         logger.log("Computing precision matrices", verbose=self.verbose)
         ret = self._cache(
-            _group_sparse_covariance, memory_level=1)(
+            _group_sparse_covariance, func_memory_level=1)(
                 self.covariances_, n_samples, self.alpha,
                 tol=self.tol, max_iter=self.max_iter,
-                verbose=self.verbose - 1, debug=False)
+                verbose=max(0, self.verbose - 1), debug=False)
 
         self.precisions_ = ret
         return self

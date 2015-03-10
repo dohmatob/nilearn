@@ -20,13 +20,11 @@ plt.cm.register_cmap(cmap=matplotlib.colors.LinearSegmentedColormap.from_list(
 def plot_matrices(cov, prec, title):
     """Plot covariance and precision matrices, for a given processing. """
 
+    # Compute sparsity pattern
+    sparsity = (prec == 0)
+    
     prec = prec.copy()  # avoid side effects
 
-    # Display sparsity pattern
-    sparsity = prec == 0
-    plt.figure()
-    plt.imshow(sparsity, interpolation="nearest")
-    plt.title("%s / sparsity" % title)
 
     # Put zeros on the diagonal, for graph clarity.
     size = prec.shape[0]
@@ -39,6 +37,11 @@ def plot_matrices(cov, prec, title):
               vmin=-1, vmax=1, cmap=plt.cm.get_cmap("bwr"))
     plt.colorbar()
     plt.title("%s / covariance" % title)
+    
+    # Display sparsity pattern
+    plt.figure()
+    plt.imshow(sparsity, interpolation="nearest")
+    plt.title("%s / sparsity" % title)
 
     # Display precision matrix
     plt.figure()
@@ -49,11 +52,13 @@ def plot_matrices(cov, prec, title):
     plt.title("%s / precision" % title)
 
 
+# Fetching datasets ###########################################################
 print("-- Fetching datasets ...")
 from nilearn import datasets
 msdl_atlas_dataset = datasets.fetch_msdl_atlas()
 adhd_dataset = datasets.fetch_adhd()
 
+# Extracting region signals ###################################################
 import nilearn.image
 import nilearn.input_data
 
@@ -84,7 +89,7 @@ for func_filename, confound_filename in zip(func_filenames,
                                                 confound_filename])
     subjects.append(region_ts)
 
-
+# Computing group-sparse precision matrices ###################################
 print("-- Computing group-sparse precision matrices ...")
 from nilearn.group_sparse_covariance import GroupSparseCovarianceCV
 gsc = GroupSparseCovarianceCV(verbose=2, n_jobs=3)
@@ -95,6 +100,7 @@ from sklearn import covariance
 gl = covariance.GraphLassoCV(n_jobs=3)
 gl.fit(subjects[plotted_subject])
 
+# Displaying results ##########################################################
 print("-- Displaying results")
 title = "{0:d} GroupSparseCovariance $\\alpha={1:.2e}$".format(plotted_subject,
                                                      gsc.alpha_)

@@ -84,7 +84,7 @@ class MultiNiftiMasker(BaseMasker, CacheMixin):
         The number of CPUs to use to do the computation. -1 means
         'all CPUs', -2 'all CPUs but one', and so on.
 
-    verbose: interger, optional
+    verbose: integer, optional
         Indicate the level of verbosity. By default, nothing is printed
 
     Attributes
@@ -178,14 +178,14 @@ class MultiNiftiMasker(BaseMasker, CacheMixin):
 
             self.mask_img_ = self._cache(
                         compute_mask,
-                        memory_level=1,
+                        func_memory_level=1,
                         ignore=['n_jobs', 'verbose', 'memory'])(
                             imgs,
                             target_affine=self.target_affine,
                             target_shape=self.target_shape,
                             n_jobs=self.n_jobs,
                             memory=self.memory,
-                            verbose=(self.verbose - 1),
+                            verbose=max(0, self.verbose - 1),
                         **mask_args)
         else:
             if imgs is not None:
@@ -200,7 +200,7 @@ class MultiNiftiMasker(BaseMasker, CacheMixin):
         if self.verbose > 0:
             print "[%s.transform] Resampling mask" % self.__class__.__name__
         self.mask_img_ = self._cache(image.resample_img,
-                                    memory_level=1)(
+                                    func_memory_level=1)(
             self.mask_img_,
             target_affine=self.target_affine,
             target_shape=self.target_shape,

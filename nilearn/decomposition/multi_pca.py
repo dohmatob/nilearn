@@ -23,7 +23,7 @@ from .._utils import as_ndarray
 def session_pca(imgs, mask_img, parameters,
                 n_components=20,
                 confounds=None,
-                ref_memory_level=0,
+                memory_level=0,
                 memory=Memory(cachedir=None),
                 verbose=0,
                 copy=True):
@@ -52,7 +52,7 @@ def session_pca(imgs, mask_img, parameters,
     n_components: integer, optional
         Number of components to be extracted by the PCA
 
-    ref_memory_level: integer, optional
+    memory_level: integer, optional
         Integer indicating the level of memorization. The higher, the more
         function calls are cached.
 
@@ -60,18 +60,18 @@ def session_pca(imgs, mask_img, parameters,
         Used to cache the function calls.
 
     verbose: integer, optional
-        Indicate the level of verbosity
+        Indicate the level of verbosity (0 means no messages).
 
     copy: boolean, optional
         Whether or not data should be copied
     """
 
     data, affine = cache(
-        filter_and_mask, memory=memory, ref_memory_level=ref_memory_level,
-        memory_level=2,
-        ignore=['verbose', 'memory', 'ref_memory_level', 'copy'])(
+        filter_and_mask, memory, memory_level=memory_level,
+        func_memory_level=2,
+        ignore=['verbose', 'memory', 'memory_level', 'copy'])(
             imgs, mask_img, parameters,
-            ref_memory_level=ref_memory_level,
+            memory_level=memory_level,
             memory=memory,
             verbose=verbose,
             confounds=confounds,
@@ -207,7 +207,7 @@ class MultiPCA(BaseEstimator, TransformerMixin):
         if len(imgs) == 0:
             # Common error that arises from a null glob. Capture
             # it early and raise a helpful message
-            raise ValueError('Need one or more Niimg-like object as an entry, '
+            raise ValueError('Need one or more Niimg-like objects as input, '
                              'an empty list was given.')
         if confounds is None:
             confounds = itertools.repeat(None, len(imgs))
@@ -274,7 +274,7 @@ class MultiPCA(BaseEstimator, TransformerMixin):
                 parameters,
                 n_components=self.n_components,
                 memory=self.memory,
-                ref_memory_level=self.memory_level,
+                memory_level=self.memory_level,
                 confounds=confound,
                 verbose=self.verbose
             )
@@ -297,8 +297,8 @@ class MultiPCA(BaseEstimator, TransformerMixin):
                 data[index * self.n_components:
                      (index + 1) * self.n_components] = subject_pca
             data, variance, _ = cache(randomized_svd,
-                                memory=self.memory,
-                                ref_memory_level=3,
+                                self.memory,
+                                func_memory_level=3,
                                 memory_level=self.memory_level)(
                         data.T, n_components=self.n_components)
             # as_ndarray is to get rid of memmapping
@@ -315,7 +315,7 @@ class MultiPCA(BaseEstimator, TransformerMixin):
 
         Parameters
         ----------
-        imgs: iterable of Niimg-like object
+        imgs: iterable of Niimg-like objects
             See http://nilearn.github.io/building_blocks/manipulating_mr_images.html#niimg.
             Data to be projected
 

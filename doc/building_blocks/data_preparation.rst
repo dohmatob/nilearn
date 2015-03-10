@@ -77,6 +77,13 @@ default algorithm performs poorly. This is why it is very important to
 Computing the mask
 ...................
 
+.. note::
+   
+    The full example described in this section can be found here:
+    :doc:`plot_mask_computation.py <../auto_examples/manipulating_visualizing/plot_mask_computation>`.
+    This one can be relevant too:
+    :doc:`plot_nifti_simple.py <../auto_examples/plot_nifti_simple>`.
+
 If a mask is not given, :class:`NiftiMasker` will try to compute
 one. It is *very important* to take a look at the generated mask, to see if it
 is suitable for your data and adjust parameters if it is not. See the
@@ -87,11 +94,6 @@ As an example, we will now try to build a mask based on a dataset from
 scratch. The Haxby dataset will be used since it provides a mask that we
 can use as a reference.
 
-.. figure:: ../auto_examples/manipulating_visualizing/images/plot_mask_computation_2.png
-    :target: ../auto_examples/plot_mask_computation.html
-    :align: right
-    :scale: 50%
-
 The first step is to generate a mask with default parameters and take
 a look at it.
 
@@ -99,12 +101,11 @@ a look at it.
     :start-after: # Simple mask extraction from EPI images
     :end-before: # Generate mask with strong opening
 
-____
 
-.. figure:: ../auto_examples/manipulating_visualizing/images/plot_mask_computation_3.png
+.. figure:: ../auto_examples/manipulating_visualizing/images/plot_mask_computation_2.png
     :target: ../auto_examples/plot_mask_computation.html
-    :align: right
     :scale: 50%
+
 
 We can make the outline of the mask more by increasing the number of
 opening steps (*opening=10*) using the `mask_args` argument of the
@@ -114,7 +115,11 @@ opening steps (*opening=10*) using the `mask_args` argument of the
     :start-after: # Generate mask with strong opening
     :end-before: # Generate mask with a high lower cutoff
 
-____
+
+.. figure:: ../auto_examples/manipulating_visualizing/images/plot_mask_computation_3.png
+    :target: ../auto_examples/plot_mask_computation.html
+    :scale: 50%
+
 
 Looking at the :func:`nilearn.masking.compute_epi_mask` called by the
 :class:`NiftiMasker` object, we see two interesting parameters:
@@ -124,23 +129,17 @@ which the masking algorithm is going to try to find it's threshold (where
 the lower cutoff, and thus force the masking algorithm to select only
 voxels that are very light on the EPI image.
 
-.. figure:: ../auto_examples/manipulating_visualizing/images/plot_mask_computation_4.png
-    :target: ../auto_examples/plot_mask_computation.html
-    :align: right
-    :scale: 50%
-
 
 .. literalinclude:: ../../examples/manipulating_visualizing/plot_mask_computation.py
     :start-after: # Generate mask with a high lower cutoff
     :end-before: ################################################################################
 
 
-.. note::
+.. figure:: ../auto_examples/manipulating_visualizing/images/plot_mask_computation_4.png
+    :target: ../auto_examples/plot_mask_computation.html
+    :scale: 50%
 
-    The full example described in this section can be found here:
-    :doc:`plot_mask_computation.py <../auto_examples/manipulating_visualizing/plot_mask_computation>`.
-    This one can be relevant too:
-    :doc:`plot_nifti_simple.py <../auto_examples/plot_nifti_simple>`.
+
 
 
 Common data preparation steps: resampling, smoothing, filtering
@@ -310,16 +309,16 @@ the `MSDL one
 
 
 .. literalinclude:: ../../examples/connectivity/plot_adhd_covariance.py
-    :start-after: print("-- Fetching datasets ...")
-    :end-before: dataset = nilearn.datasets.fetch_adhd()
+    :start-after: # Fetching datasets #
+    :end-before: # Extracting region signals #
 
 This atlas defines its regions using maps. The path to the corresponding file
 can be found under the "maps" key. Extracting region signals for
 several subjects can be performed like this:
 
 .. literalinclude:: ../../examples/connectivity/plot_adhd_covariance.py
-   :start-after: atlas = nilearn.datasets.fetch_msdl_atlas()
-   :end-before: print("-- Computing group-sparse precision matrices ...")
+   :start-after: # Extracting region signals #
+   :end-before: # Computing group-sparse precision matrices #
 
 `region_ts` is a `numpy.ndarray
 <http://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.html>`_,
@@ -350,8 +349,8 @@ or the `group-sparse covariance <http://arxiv.org/abs/1207.4255>`_
 algorithm:
 
 .. literalinclude:: ../../examples/connectivity/plot_adhd_covariance.py
-   :start-after: subjects.append(region_ts)
-   :end-before: print("-- Displaying results")
+   :start-after: # Computing group-sparse precision matrices #
+   :end-before: # Displaying results #
 
 
 :class:`NiftiLabelsMasker` Usage
