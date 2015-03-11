@@ -27,7 +27,7 @@ for condition_name, condition_mask in sorted(conditions.items()):
     y = targets[condition_mask]
     labels = session[condition_mask]
     condition_mask_train = condition_mask[labels < 6]
-    labels_train = session[condition_mask_train]
+    labels_train = labels[labels < 6]
     condition_mask_test = condition_mask[labels >= 6]
     X_train = index_img(X, labels < 6)
     X_test = index_img(X, labels >= 6)
