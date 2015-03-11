@@ -23,16 +23,17 @@ background_img = mean_img(data_files.func[0])
 n_jobs = int(os.environ.get("N_JOBS", 1))
 penalty = "smooth-lasso"
 for condition_name, condition_mask in sorted(conditions.items()):
+    X = index_img(niimgs, condition_mask)
+    y = targets[condition_mask]
     labels = session[condition_mask]
-    labels_train = labels[labels < 6]
+    condition_mask_train = condition_mask[labels < 6]
+    labels_train = session[condition_mask_train]
+    condition_mask_test = condition_mask[labels >= 6]
+    X_train = index_img(X, labels < 6)
+    X_test = index_img(X, labels >= 6)
+    y_train = y[labels < 6]
+    y_test = y[labels >= 6]
     cv = LeaveOneLabelOut(labels=labels_train)
-    condition_mask_train = (labels < 6)
-    condition_mask_test = (labels >= 6)
-    X_train = index_img(niimgs, condition_mask_train)
-    X_test = index_img(niimgs, condition_mask_test)
-    y_train = targets[condition_mask_train]
-    y_test = targets[condition_mask_test]
-
     for early_stopping_tol in [-1.e-4, 1e2]:
         decoder = SpaceNetClassifier(memory="cache", penalty=penalty,
                                      verbose=2, n_jobs=n_jobs, cv=cv,
