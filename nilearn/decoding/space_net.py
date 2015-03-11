@@ -568,7 +568,6 @@ class BaseSpaceNet(LinearModel, RegressorMixin):
 
     `coef_` : ndarray, shape (n_classes-1, n_features)
         Coefficient of the features in the decision function.
-
         `coef_` is readonly property derived from `raw_coef_` that
         follows the internal memory layout of liblinear.
 
@@ -606,7 +605,7 @@ class BaseSpaceNet(LinearModel, RegressorMixin):
                  memory=Memory(None, verbose=0), copy_data=True,
                  standardize=True, verbose=0, n_jobs=1, eps=1e-3,
                  cv=8, fit_intercept=True, screening_percentile=20.,
-                 debias=False, early_stopping_tol=True):
+                 debias=False, refit=False, early_stopping_tol=True):
         self.penalty = penalty
         self.is_classif = is_classif
         self.loss = loss
@@ -626,6 +625,7 @@ class BaseSpaceNet(LinearModel, RegressorMixin):
         self.cv = cv
         self.screening_percentile = screening_percentile
         self.debias = debias
+        self.refit = refit
         self.early_stopping_tol = early_stopping_tol
         self.low_pass = low_pass
         self.high_pass = high_pass
@@ -792,7 +792,6 @@ class BaseSpaceNet(LinearModel, RegressorMixin):
 
         # scores & mean weights map over all folds
         self.cv_scores_ = [[] for _ in range(n_problems)]
-        w = np.zeros((n_problems, X.shape[1] + 1))
         self.all_coef_ = np.ndarray((n_problems, n_folds, X.shape[1]))
 
         # correct screening_percentile according to the volume of the data mask
@@ -800,8 +799,9 @@ class BaseSpaceNet(LinearModel, RegressorMixin):
         if mask_volume > MNI152_BRAIN_VOLUME:
             warnings.warn(
                 "Brain mask is bigger than volume of standard brain!")
-        self.screening_percentile_ = self.screening_percentile * (
-            mask_volume / MNI152_BRAIN_VOLUME)
+        # self.screening_percentile_ = self.screening_percentile * (
+        #     mask_volume / MNI152_BRAIN_VOLUME)
+        self.screening_percentile_ = self.screening_percentile
         if self.verbose > 1:
             print "Mask volume = %gmm^3 = %gcm^3" % (
                 mask_volume, mask_volume / 1.e3)
@@ -812,22 +812,31 @@ class BaseSpaceNet(LinearModel, RegressorMixin):
             print "Volume-corrected screening-percentile: %g" % (
                 self.screening_percentile_)
 
+        def _pathman(alphas, l1_ratios, cv):
+            cv = list(cv)
+            n_folds = len(cv)
+            return Parallel(
+                n_jobs=self.n_jobs, verbose=2 * self.verbose)(
+                delayed(self.memory_.cache(path_scores))(
+                        solver, X, y[:, cls] if n_problems > 1 else y,
+                        self.mask_, alphas, l1_ratios, cv[fold][0],
+                        cv[fold][1], solver_params,
+                        n_alphas=self.n_alphas, eps=self.eps,
+                        is_classif=self.loss == "logistic", key=(cls, fold),
+                        debias=self.debias, verbose=self.verbose,
+                        screening_percentile=self.screening_percentile_,
+                        early_stopping_tol=self.early_stopping_tol
+                        ) for cls in xrange(n_problems)
+                for fold in xrange(n_folds))
+
         # main loop: loop on classes and folds
         solver_params = dict(tol=self.tol, max_iter=self.max_iter)
         self.best_model_params_ = []
         self.alpha_grids_ = []
+        w = np.zeros((n_problems, X.shape[1] + 1))
         for (test_scores, best_w, best_alpha, best_l1_ratio, alphas,
-             y_train_mean, (cls, fold)) in Parallel(
-            n_jobs=self.n_jobs, verbose=2 * self.verbose)(
-            delayed(self.memory_.cache(path_scores))(
-                solver, X, y[:, cls] if n_problems > 1 else y, self.mask_,
-                alphas, l1_ratios, self.cv_[fold][0], self.cv_[fold][1],
-                solver_params, n_alphas=self.n_alphas, eps=self.eps,
-                is_classif=self.loss == "logistic", key=(cls, fold),
-                debias=self.debias, verbose=self.verbose,
-                screening_percentile=self.screening_percentile_,
-                early_stopping_tol=self.early_stopping_tol
-                ) for cls in xrange(n_problems) for fold in xrange(n_folds)):
+             y_train_mean, (cls, fold)) in _pathman(alphas, l1_ratios,
+                                                    self.cv_):
             self.best_model_params_.append((best_alpha, best_l1_ratio))
             self.alpha_grids_.append(alphas)
             self.ymean_[cls] += y_train_mean
@@ -835,7 +844,8 @@ class BaseSpaceNet(LinearModel, RegressorMixin):
             if len(np.atleast_1d(l1_ratios)) == 1:
                 test_scores = test_scores[0]
             self.cv_scores_[cls].append(test_scores)
-            w[cls] += best_w
+            if not self.refit:
+                w[cls] += best_w
 
         # misc
         self.cv_scores_ = np.array(self.cv_scores_)
@@ -846,8 +856,16 @@ class BaseSpaceNet(LinearModel, RegressorMixin):
             w = w[0]
             self.ymean_ = self.ymean_[0]
 
-        # bagging: average best weights maps over folds
-        w /= n_folds
+        self.best_model_params_ = np.array(self.best_model_params_)
+        if not self.refit:
+            # bagging: average best weights maps over folds
+            w /= n_folds
+        else:
+            self.best_model_params_ = self.best_model_params_.mean(axis=0)
+            for _, best_w, _, _, _, _, (csl, _) in _pathman(
+                self.best_model_params_[:1], self.best_model_params_[1:],
+                [(range(len(X)), range(len(X)))]):
+                w[cls] = best_w
 
         # set coefs and intercepts
         self._set_coef_and_intercept(w)

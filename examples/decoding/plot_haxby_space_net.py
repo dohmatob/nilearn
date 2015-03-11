@@ -26,17 +26,16 @@ for condition_name, condition_mask in sorted(conditions.items()):
     X = index_img(niimgs, condition_mask)
     y = targets[condition_mask]
     labels = session[condition_mask]
-    condition_mask_train = condition_mask[labels < 6]
     labels_train = labels[labels < 6]
-    condition_mask_test = condition_mask[labels >= 6]
     X_train = index_img(X, labels < 6)
     X_test = index_img(X, labels >= 6)
     y_train = y[labels < 6]
     y_test = y[labels >= 6]
     cv = LeaveOneLabelOut(labels=labels_train)
-    for early_stopping_tol in [-1.e-4, 1e2]:
+    for early_stopping_tol in [-1.e-4, -1e-2, 0, 1e2]:
         decoder = SpaceNetClassifier(memory="cache", penalty=penalty,
                                      verbose=2, n_jobs=n_jobs, cv=cv,
+                                     screening_percentile=100.,
                                      early_stopping_tol=early_stopping_tol)
         decoder.fit(X_train, y_train)
         y_pred = decoder.predict(X_test)
@@ -45,15 +44,15 @@ for condition_name, condition_mask in sorted(conditions.items()):
         print "=" * 80
         coef_img = decoder.coef_img_
         plot_stat_map(coef_img, background_img,
-                      title="%s (early-stopping tol = %g): accuracy %g%%" % (
-                          penalty, early_stopping_tol, accuracy),
+                      title="%s (early-stopping tol = %.1e): accuracy %g%%" % (
+                          condition_name, early_stopping_tol, accuracy),
                       cut_coords=(20, -34, -16))
-        coef_img.to_filename('haxby_%s_es_tol=%g_weights.nii' % (
-                penalty, early_stopping_tol))
+        coef_img.to_filename('haxby_%s_%s_estopping_tol=%.1e_weights.nii' % (
+                penalty, condition_name, early_stopping_tol))
         print "- %s (early-stopping tol=%g) %s" % (
             penalty, early_stopping_tol, '-' * 60)
-        print "Number of train samples : %i" % condition_mask_train.sum()
-        print "Number of test samples  : %i" % condition_mask_test.sum()
+        print "Number of train samples : %i" % len(y_train)
+        print "Number of test samples  : %i" % len(y_test)
         print "Classification accuracy : %g%%" % accuracy
         print "_" * 80
 plt.show()
