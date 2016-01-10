@@ -40,13 +40,15 @@ y_test = target[condition_mask_test]
 # Compute the mean epi to be used for the background of the plotting
 from nilearn.image import mean_img
 background_img = mean_img(func_filenames)
+background_img.to_filename("bg.nii.gz")
 
 ##############################################################################
 # Fit SpaceNet with a Graph-Net penalty
 from nilearn.decoding import SpaceNetClassifier
 
 # Fit model on train data and predict on test data
-decoder = SpaceNetClassifier(memory="nilearn_cache", penalty='graph-net')
+decoder = SpaceNetClassifier(memory="nilearn_cache", penalty='graph-net', 
+                             memory_level=2, screening_percentile=100.)
 decoder.fit(X_train, y_train)
 y_pred = decoder.predict(X_test)
 accuracy = (y_pred == y_test).mean() * 100.
@@ -65,7 +67,8 @@ coef_img.to_filename('haxby_graph-net_weights.nii')
 
 ##############################################################################
 # Now Fit SpaceNet with a TV-l1 penalty
-decoder = SpaceNetClassifier(memory="nilearn_cache", penalty='tv-l1')
+decoder = SpaceNetClassifier(memory="nilearn_cache", penalty='tv-l1',
+                             screening_percentile=100.)
 decoder.fit(X_train, y_train)
 y_pred = decoder.predict(X_test)
 accuracy = (y_pred == y_test).mean() * 100.
@@ -79,6 +82,42 @@ plot_stat_map(coef_img, background_img,
 
 # Save the coefficients to a nifti file
 coef_img.to_filename('haxby_tv-l1_weights.nii')
+
+
+##############################################################################
+# sklearn unstructured classifiers
+from sklearn.grid_search import GridSearchCV
+from sklearn.svm import SVC
+from sklearn.linear_model import LogisticRegression, RidgeClassifier
+from sklearn.base import clone
+from sklearn2nilearn import SklearnEstimatorWrapper
+
+high = decoder.alpha_grids_.max()
+low = high * decoder.eps
+C = np.reciprocal(np.logspace(np.log10(high), np.log10(low),
+                              decoder.n_alphas))
+masker = clone(decoder.masker_)
+for estimator, params_grid in zip([SVC(kernel='linear'), RidgeClassifier(),
+                                   LogisticRegression()],
+                                  [dict(C=C), dict(C=C), dict(gamma=C)]):
+    decoder_name = estimator.__class__.__name__.lower()
+    decoder = SklearnEstimatorWrapper(GridSearchCV, masker=masker,
+                                      estimator=estimator,
+                                      param_grid=params_grid, n_jobs=2)
+    decoder.fit(X_train, y_train)
+    y_pred = decoder.predict(X_test)
+
+    # Visualization
+    accuracy = (y_pred == y_test).mean() * 100.
+    coef_img = decoder.coef_img_
+    plot_stat_map(coef_img, background_img,
+                  title="%s: accuracy %g%%" % (decoder_name, accuracy),
+                  cut_coords=(-34, -16), display_mode="yz")
+
+    # Save the coefficients to a nifti file
+    coef_img.to_filename('haxby_%s_weights.nii' % decoder_name)
+
+
 show()
 
 
@@ -86,4 +125,3 @@ show()
 # We can see that the TV-l1 penalty is 3 times slower to converge and
 # gives the same prediction accuracy. However, it yields much
 # cleaner coefficient maps
-
