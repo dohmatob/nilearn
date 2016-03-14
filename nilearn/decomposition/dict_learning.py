@@ -137,8 +137,7 @@ class DictLearning(BaseDecomposition, TransformerMixin):
                  target_affine=None, target_shape=None,
                  mask_strategy='epi', mask_args=None,
                  memory=Memory(cachedir=None), memory_level=0,
-                 n_jobs=1, verbose=0,
-                 ):
+                 n_jobs=1, verbose=0, method="cd", batch_size=20):
         BaseDecomposition.__init__(self, n_components=n_components,
                                    random_state=random_state,
                                    mask=mask,
@@ -159,6 +158,8 @@ class DictLearning(BaseDecomposition, TransformerMixin):
         self.alpha = alpha
         self.reduction_ratio = reduction_ratio
         self.dict_init = dict_init
+        self.method = method
+        self.batch_size = batch_size
 
     def _init_dict(self, data):
         if self.dict_init is not None:
@@ -188,10 +189,9 @@ class DictLearning(BaseDecomposition, TransformerMixin):
         self.components_init_ = components
 
     def _init_loadings(self, data):
-        self._loadings_init = self._cache(_compute_loadings,
-                                          func_memory_level=2)(
+        self._loadings_init = self._cache(_compute_loadings)(
             self.components_init_,
-            data)
+            data.T)
 
     def fit(self, imgs, y=None, confounds=None):
         """Compute the mask and the ICA maps across subjects
@@ -253,8 +253,8 @@ class DictLearning(BaseDecomposition, TransformerMixin):
             self.n_components,
             alpha=self.alpha,
             n_iter=n_iter,
-            batch_size=20,
-            method='cd',
+            batch_size=self.batch_size,
+            method=self.method,
             dict_init=dict_init,
             verbose=max(0, self.verbose - 1),
             random_state=self.random_state,
