@@ -222,6 +222,10 @@ class DictLearning(BaseDecomposition, TransformerMixin):
         if self.verbose:
             print('[DictLearning] Learning initial components')
         self._init_dict(data)
+        if self.voxel_coding:
+            if self.verbose:
+                print('[DictLearning] Computing initial loadings')
+            self._init_loadings(data)
         self._raw_fit(data)
         return self
 
@@ -234,9 +238,6 @@ class DictLearning(BaseDecomposition, TransformerMixin):
             Shape (n_samples, n_features)
         """
         if self.voxel_coding:
-            if self.verbose:
-                print('[DictLearning] Computing initial loadings')
-            self._init_loadings(data)
             dict_init = self.loadings_init_
             data = data.T
         else:
