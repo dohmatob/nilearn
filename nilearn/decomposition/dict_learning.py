@@ -141,9 +141,10 @@ class DictLearning(BaseDecomposition, TransformerMixin):
 
     def __init__(self, n_components=20,
                  n_epochs=1, alpha=10, reduction_ratio='auto', dict_init=None,
-                 random_state=None, batch_size=20, method="cd", mask=None,
-                 smoothing_fwhm=4, standardize=True, detrend=True,
-                 low_pass=None, high_pass=None, t_r=None, target_affine=None,
+                 voxel_coding=True, random_state=None, batch_size=20,
+                 method="cd", mask=None, smoothing_fwhm=4,
+                 standardize=True, detrend=True, low_pass=None,
+                 high_pass=None, t_r=None, target_affine=None,
                  target_shape=None, mask_strategy='epi', mask_args=None,
                  n_jobs=1, verbose=0, memory=Memory(cachedir=None),
                  memory_level=0):
@@ -164,6 +165,7 @@ class DictLearning(BaseDecomposition, TransformerMixin):
         self.alpha = alpha
         self.reduction_ratio = reduction_ratio
         self.dict_init = dict_init
+        self.voxel_coding = voxel_coding
 
     def _init_dict(self, data):
         if self.dict_init is not None:
@@ -223,7 +225,7 @@ class DictLearning(BaseDecomposition, TransformerMixin):
         self._raw_fit(data)
         return self
 
-    def _raw_fit(self, data):
+    def _raw_fit(self, data, **kwargs):
         """Helper function that direcly process unmasked data
 
         Parameters
@@ -231,25 +233,32 @@ class DictLearning(BaseDecomposition, TransformerMixin):
         data: ndarray,
             Shape (n_samples, n_features)
         """
-        _, n_features = data.shape
+        if self.voxel_coding:
+            if self.verbose:
+                print('[DictLearning] Computing initial loadings')
+            self._init_loadings(data)
+            dict_init = self.loadings_init_
+            data = data.T
+        else:
+            dict_init = self.components_init_
 
-        if self.verbose:
-            print('[DictLearning] Computing initial loadings')
-        self._init_loadings(data)
-
-        dict_init = self.loadings_init_
-
-        n_iter = ((n_features - 1) // self.batch_size + 1) * self.n_epochs
+        n_samples, _ = data.shape
+        n_iter = ((n_samples - 1) // self.batch_size + 1) * self.n_epochs
 
         if self.verbose:
             print('[DictLearning] Learning dictionary')
-        self.components_, _ = self._cache(dict_learning_online)(
-            data.T, self.n_components, alpha=self.alpha, n_iter=n_iter,
-            batch_size=self.batch_size, method=self.method,
+        dict_init = dict_init.copy()
+        out = self._cache(dict_learning_online)(
+            data, self.n_components, alpha=self.alpha, n_iter=n_iter,
+            batch_size=self.batch_size, method=self.method, n_jobs=1,
             dict_init=dict_init, verbose=max(0, self.verbose - 1),
             random_state=self.random_state, return_code=True, shuffle=True,
-            n_jobs=1)
-        self.components_ = self.components_.T
+            **kwargs)
+        if self.voxel_coding:
+            self.components_ = out[0].T
+        else:
+            self.components_ = out[1]
+
         # Unit-variance scaling
         S = np.sqrt(np.sum(self.components_ ** 2, axis=1))
         S[S == 0] = 1
