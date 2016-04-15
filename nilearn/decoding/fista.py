@@ -158,7 +158,7 @@ def mfista(f1_grad, f2_prox, total_energy, lipschitz_constant, w_size,
     ista_step = False
     best_z = z.copy()
     best_t = t
-    prox_info = dict(converged=True)
+    prox_info = dict(congverged=True)
     stepsize = 1. / lipschitz_constant
     history = []
     w_old = w.copy()
@@ -242,5 +242,5 @@ def mfista(f1_grad, f2_prox, total_energy, lipschitz_constant, w_size,
             best_dgap_tol = dgap_tol
 
     init = dict(w=best_w.copy(), z=best_z, t=best_t, dgap_tol=best_dgap_tol,
-                stepsize=stepsize)
+                lipschitz_constant=lipschitz_constant)
     return best_w, history, init

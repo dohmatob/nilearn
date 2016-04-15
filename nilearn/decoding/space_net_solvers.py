@@ -88,7 +88,7 @@ def _squared_loss_and_spatial_grad_derivative(X, y, w, mask, grad_weight):
             - grad_weight * _div(_gradient(image_buffer))[mask])
 
 
-def _graph_net_data_function(X, w, mask, grad_weight):
+def _graph_net_data_function(X, w, mask, grad_weight, X_shape=None):
     """
     Computes dot([X; grad_weight * grad], w).
 
@@ -115,17 +115,21 @@ def _graph_net_data_function(X, w, mask, grad_weight):
         Data-fit term augmented with design matrix augmented with
         nabla operator (for spatial gradient).
     """
+    if X_shape is None:
+        X_shape = X.shape
+    n_samples, n_features = X_shape
     data_buffer = np.zeros(mask.shape)
     data_buffer[mask] = w
     w_g = grad_weight * _gradient(data_buffer)
-    out = np.ndarray(X.shape[0] + mask.ndim * X.shape[1])
-    out[:X.shape[0]] = X.dot(w)
-    out[X.shape[0]:] = np.concatenate(
+    out = np.ndarray(n_samples + mask.ndim * n_features)
+    out[:n_samples] = X.dot(w)
+    out[n_samples:] = np.concatenate(
         tuple([w_g[i][mask] for i in range(mask.ndim)]))
     return out
 
 
-def _graph_net_adjoint_data_function(X, w, adjoint_mask, grad_weight):
+def _graph_net_adjoint_data_function(X, w, adjoint_mask, grad_weight,
+                                     X_shape=None):
     """
     Computes the adjoint of the _graph_net_data_function, that is
     np.dot([X.T; grad_weight * div], w). This function is made for the
@@ -150,7 +154,9 @@ def _graph_net_adjoint_data_function(X, w, adjoint_mask, grad_weight):
     ndarray, shape (n_samples,)
         Value of adjoint.
     """
-    n_samples, _ = X.shape
+    if X_shape is None:
+        X_shape = X.shape
+    n_samples, _ = X_shape
     out = X.T.dot(w[:n_samples])
     div_buffer = np.zeros(adjoint_mask.shape)
     div_buffer[adjoint_mask] = w[n_samples:]
@@ -159,15 +165,19 @@ def _graph_net_adjoint_data_function(X, w, adjoint_mask, grad_weight):
 
 
 def _squared_loss_derivative_lipschitz_constant(X, mask, grad_weight,
-                                                n_iterations=100):
+                                                n_iterations=100,
+                                                X_shape=None):
     """
     Computes the lipschitz constant of the gradient of the smooth part
     of the Graph-Net regression problem (squared_loss + grad_weight*grad)
     via power method
 
     """
+    if X_shape is None:
+        X_shape = X.shape
+    _, model_size = X_shape
     rng = np.random.RandomState(42)
-    a = rng.randn(X.shape[1])
+    a = rng.randn(model_size)
     a /= sqrt(np.dot(a, a))
     adjoint_mask = np.tile(mask, [mask.ndim] + [1] * mask.ndim)
 
@@ -177,13 +187,15 @@ def _squared_loss_derivative_lipschitz_constant(X, mask, grad_weight,
     actual_grad_weight = sqrt(grad_weight)
     for _ in range(n_iterations):
         a = _graph_net_adjoint_data_function(
-            X, _graph_net_data_function(X, a, mask, actual_grad_weight),
-            adjoint_mask, actual_grad_weight)
+            X, _graph_net_data_function(X, a, mask, actual_grad_weight,
+                                        X_shape=X_shape),
+            adjoint_mask, actual_grad_weight, X_shape=X_shape)
         a /= sqrt(np.dot(a, a))
 
     lipschitz_constant = np.dot(_graph_net_adjoint_data_function(
-        X, _graph_net_data_function(X, a, mask, actual_grad_weight),
-        adjoint_mask, actual_grad_weight), a) / np.dot(a, a)
+        X, _graph_net_data_function(X, a, mask, actual_grad_weight,
+                                    X_shape=X_shape),
+        adjoint_mask, actual_grad_weight, X_shape=X_shape), a) / np.dot(a, a)
 
     return lipschitz_constant
 
@@ -239,7 +251,9 @@ def _logistic_data_loss_and_spatial_grad_derivative(X, y, w, mask,
 
 def _graph_net_squared_loss(X, y, alpha, l1_ratio, mask, init=None,
                             max_iter=1000, tol=1e-4, callback=None,
-                            lipschitz_constant=None, verbose=0):
+                            lipschitz_constant=None, verbose=0,
+                            X_shape=None, check_lipschitz=False,
+                            f2=None, f2_prox=None):
     """Computes a solution for the Graph-Net regression problem.
 
     This function invokes the mfista backend (from fista.py) to solve the
@@ -257,16 +271,19 @@ def _graph_net_squared_loss(X, y, alpha, l1_ratio, mask, init=None,
         Objective function (fval) computed on every iteration.
 
     """
-    _, n_features = X.shape
+    if X_shape is None:
+        X_shape = X.shape
+    _, model_size = X_shape
 
     # misc
-    model_size = n_features
     l1_weight = alpha * l1_ratio
     grad_weight = alpha * (1. - l1_ratio)
 
+    if init is not None and "lipschitz_constant" in init:
+        lipschitz_constant = init.pop("lipschitz_constant")
     if lipschitz_constant is None:
         lipschitz_constant = _squared_loss_derivative_lipschitz_constant(
-            X, mask, grad_weight)
+            X, mask, grad_weight, X_shape=X_shape)
 
         # it's always a good idea to use somethx a bit bigger
         lipschitz_constant *= 1.05
@@ -280,11 +297,12 @@ def _graph_net_squared_loss(X, y, alpha, l1_ratio, mask, init=None,
                                                          grad_weight)
 
     # prox of nonsmooth path of energy (account for the intercept)
-    def f2(w):
-        return np.sum(np.abs(w)) * l1_weight
+    if f2 is None:
+        f2 = lambda w: np.sum(np.abs(w)) * l1_weight
 
-    def f2_prox(w, l, *args, **kwargs):
-        return _prox_l1(w, l * l1_weight), dict(converged=True)
+    if f2_prox is None:
+        f2_prox = lambda w, l, *args, **kwargs: (_prox_l1(w, l * l1_weight),
+                                                 dict(converged=True))
 
     # total energy (smooth + nonsmooth)
     def total_energy(w):
@@ -293,7 +311,8 @@ def _graph_net_squared_loss(X, y, alpha, l1_ratio, mask, init=None,
     return mfista(
         f1_grad, f2_prox, total_energy, lipschitz_constant,
         model_size, dgap_factor=(.1 + l1_ratio) ** 2, callback=callback,
-        tol=tol, max_iter=max_iter, verbose=verbose, init=init)
+        tol=tol, max_iter=max_iter, verbose=verbose, init=init,
+        check_lipschitz=check_lipschitz)
 
 
 def _graph_net_logistic(X, y, alpha, l1_ratio, mask, init=None,
@@ -407,8 +426,9 @@ def _tvl1_objective(X, y, w, alpha, l1_ratio, mask, loss="mse"):
 
 
 def tvl1_solver(X, y, alpha, l1_ratio, mask, loss=None, max_iter=100,
-                lipschitz_constant=None, init=None,
-                prox_max_iter=5000, tol=1e-4, callback=None, verbose=1):
+                lipschitz_constant=None, init=None, prox_max_iter=5000,
+                tol=1e-4, callback=None, verbose=1, check_lipschitz=False,
+                X_shape=None):
     """Minimizes empirical risk for TV-L1 penalized models.
 
     Can handle least squares (mean squared error --a.k.a mse) or logistic
@@ -473,7 +493,9 @@ def tvl1_solver(X, y, alpha, l1_ratio, mask, loss=None, max_iter=100,
         Solver information, for warm start.
 
     """
-
+    if X_shape is None:
+        X_shape = X.shape
+    _, n_features = X_shape
     # sanitize loss
     if loss not in ["mse", "logistic"]:
         raise ValueError("'%s' loss not implemented. Should be 'mse' or "
@@ -484,7 +506,7 @@ def tvl1_solver(X, y, alpha, l1_ratio, mask, loss=None, max_iter=100,
     volume_shape = mask.shape
 
     # in logistic regression, we fit the intercept explicitly
-    w_size = X.shape[1] + int(loss == "logistic")
+    w_size = n_features + int(loss == "logistic")
 
     def unmaskvec(w):
         if loss == "mse":
@@ -537,6 +559,6 @@ def tvl1_solver(X, y, alpha, l1_ratio, mask, loss=None, max_iter=100,
     w, obj, init = mfista(
         f1_grad, f2_prox, total_energy, lipschitz_constant, w_size,
         dgap_factor=(.1 + l1_ratio) ** 2, tol=tol, init=init, verbose=verbose,
-        max_iter=max_iter, callback=callback)
+        max_iter=max_iter, callback=callback, check_lipschitz=check_lipschitz)
 
     return w, obj, init
