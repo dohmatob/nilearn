@@ -74,14 +74,14 @@ def _objective_function_prox_tvl1(
             + weight * _tv_l1_from_gradient(gradient))
 
 
-def _prox_tvl1(input_img, l1_ratio=.05, weight=50, dgap_tol=5.e-5, x_tol=None,
-               max_iter=200, check_gap_frequency=4, val_min=None, val_max=None,
-               verbose=False, fista=True, init=None):
+def _prox_tvl1(input_img, l1_ratio=.05, weight=50, proj_C=None, dgap_tol=5.e-5,
+               x_tol=None, max_iter=200, check_gap_frequency=4, val_min=None,
+               val_max=None, verbose=False, fista=True, init=None):
     """
     Compute the TV-L1 proximal (ie total-variation +l1 denoising) on 3d images.
 
     Find the argmin `res` of
-        1/2 * ||im - res||^2 + weight * TVl1(res),
+        1/2 * ||im - res||^2 + weight * TVl1(res) subject to res in C,
 
     Parameters
     ----------
@@ -195,12 +195,12 @@ def _prox_tvl1(input_img, l1_ratio=.05, weight=50, dgap_tol=5.e-5, x_tol=None,
     fista_step = fista
 
     while i < max_iter:
+        if proj_C is not None:
+            negated_output = proj_C(negated_output)
         grad_tmp = _gradient_id(negated_output, l1_ratio=l1_ratio)
         grad_tmp *= 1. / (lipschitz_constant * weight)
         grad_aux += grad_tmp
-        grad_tmp = _projector_on_tvl1_dual(
-            grad_aux, l1_ratio
-        )
+        grad_tmp = _projector_on_tvl1_dual(grad_aux, l1_ratio)
 
         # Careful, in the next few lines, grad_tmp and grad_aux are a
         # view on the same array, as _projector_on_tvl1_dual returns a view
@@ -260,6 +260,8 @@ def _prox_tvl1(input_img, l1_ratio=.05, weight=50, dgap_tol=5.e-5, x_tol=None,
     # Compute the primal variable, however, here we must use the ista
     # value, not the fista one
     output = input_img - weight * _div_id(grad_im, l1_ratio=l1_ratio)
+    if proj_C is not None:
+        output = proj_C(output)
     if (val_min is not None or val_max is not None):
         output = output.clip(val_min, val_max, out=output)
     return output, dict(converged=(i < max_iter))
