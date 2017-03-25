@@ -47,7 +47,8 @@ background_img = mean_img(func_filenames)
 from nilearn.decoding import SpaceNetClassifier
 
 # Fit model on train data and predict on test data
-decoder = SpaceNetClassifier(memory="nilearn_cache", penalty='graph-net')
+decoder = SpaceNetClassifier(memory="nilearn_cache", penalty='graph-net',
+                             loss="mse", l1_ratios=1.)
 decoder.fit(X_train, y_train)
 y_pred = decoder.predict(X_test)
 accuracy = (y_pred == y_test).mean() * 100.

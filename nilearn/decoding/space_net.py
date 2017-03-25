@@ -285,8 +285,8 @@ class _EarlyStoppingCallback(object):
 
 def path_scores(solver, X, y, mask, alphas, l1_ratios, train, test,
                 solver_params, is_classif=False, n_alphas=10, eps=1E-3,
-                key=None, debias=False, Xmean=None,
-                screening_percentile=20., verbose=1):
+                debias=False, Xmean=None, verbose=1, gcv_sure_mode=True,
+                screening_percentile=20., key=None):
     """Function to compute scores of different alphas in regression and
     classification used by CV objects
 
@@ -385,13 +385,34 @@ def path_scores(solver, X, y, mask, alphas, l1_ratios, train, test,
             init = None
             for alpha in alphas_:
                 # setup callback mechanism for early stopping
-                early_stopper = _EarlyStoppingCallback(
-                    X_test, y_test, is_classif=is_classif, debias=debias,
-                    verbose=verbose)
+                if gcv_sure_mode:
+                    early_stopper = None
+                else:
+                    early_stopper = _EarlyStoppingCallback(
+                        X_test, y_test, is_classif=is_classif, debias=debias,
+                        verbose=verbose)
                 w, _, init = solver(
                     X_train, y_train, alpha, l1_ratio, mask=mask, init=init,
                     callback=early_stopper, verbose=max(verbose - 1, 0.),
                     **solver_params)
+
+                if gcv_sure_mode:
+                    n_train = len(X_train)
+                    y_hat = X_train.dot(w) + y_train_mean
+                    support = (w != 0.).sum()
+                    mu = alpha * (1. - l1_ratio)
+                    dof = (support - 2) / (1. + 2. * mu) + 2. / (1. + mu)
+                    score = np.mean((y_train - y_hat) ** 2)
+                    score *= (float(n_train) / (n_train - dof)) ** 2
+                    score *= -1  # larger is better
+
+                    if score < best_score:
+                        best_score = best_score
+                        best_l1_ratio = l1_ratio
+                        best_alpha = alpha
+                        best_init = init.copy()
+                    this_test_scores.append(score)
+                    continue
 
                 # We use 2 scores for model selection: the second one is to
                 # disambiguate between regions of equivalent Spearman
@@ -407,6 +428,7 @@ def path_scores(solver, X, y, mask, alphas, l1_ratios, train, test,
                     best_l1_ratio = l1_ratio
                     best_alpha = alpha
                     best_init = init.copy()
+            assert 0
             all_test_scores.append(this_test_scores)
     else:
         if alphas is None:
